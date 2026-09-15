@@ -1,0 +1,20 @@
+<object runtimeID="900" className="UIVIEW" frame="0,0,104,225" backgroundColor="WHITE">
+
+  
+  
+  <object runtimeID="902" className="UIBUTTONVIEW" frame="0,0,104,73"    backgroundImageForHighlightedState="up_pressed.dts" backgroundImageForNormalState="up_normal.dts" disabled="0" backgroundImageForDisabledState="up_disabled.dts">
+    <object  className="UILABELVIEW" frame="0,0, 104, 73"  text="" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont40.sif"/>
+  </object>
+
+  <object  className="UIIMAGEVIEW" frame="0,75,104,75"   imageName="picker_item_small.dts"/>
+  <object  runtimeID="901" className="UILABELVIEW" frame="0,75, 104, 75"  text="2024" textColor="BLACK" textAlignmentFlags="14" font="Tiresias_PCfont40.sif"/>  
+  
+  <object runtimeID="903" className="UIBUTTONVIEW" frame="0,152,104,73"    backgroundImageForHighlightedState="down_pressed.dts" backgroundImageForNormalState="down_normal.dts" disabled="0" backgroundImageForDisabledState="down_disabled.dts">
+    <object  className="UILABELVIEW" frame="0,0, 104, 73" text="" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont40.sif"/>
+  </object>
+
+
+
+</object>
+
+

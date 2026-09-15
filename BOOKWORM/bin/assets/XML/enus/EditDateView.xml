@@ -1,0 +1,11 @@
+<object className="UIVIEW" frame="0,0,800,480" backgroundColor="WHITE">
+
+  <object className="UISTATUSBARVIEW" frame="0,0,800,90" text="Edit System Date"  color  ="BLUE"/>
+
+  <object  runtimeID ="555" className="UIDATEPICKERVIEW" frame="140,150,521,225"   color  ="BLUE"/>
+
+  <object className="UISOFTKEYVIEW"  frame="0,390,480,70" />
+
+
+</object>
+

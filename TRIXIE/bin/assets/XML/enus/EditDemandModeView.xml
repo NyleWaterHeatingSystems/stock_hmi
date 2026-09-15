@@ -1,0 +1,15 @@
+<object className="UIVIEW" frame="0,0,1024,600"  backgroundColor="WHITE">
+
+	<object className="UISTATUSBARVIEW" frame="0,0,1024,90"/>
+
+	<object  className="UILABELVIEW"  frame="0,530,1024,70" />
+
+	<object runtimeID ="123456" className="UILABELVIEW" frame="0,150, 1024, 50"  text="" textColor="BLACK" textAlignmentFlags="14" font="Tiresias_PCfont40.sif"/>
+
+
+	<object className="UIDEMANDPICKERVIEW" frame="440,200,521,225"   color  ="BLUE"/>
+	<object  className="UISOFTKEYVIEW"  frame="0,530,1024,70" />
+
+
+</object>
+

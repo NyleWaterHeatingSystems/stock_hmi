@@ -1,0 +1,12 @@
+<object runtimeID="600" className="UIVIEW" frame="0,0,795,225" backgroundColor="WHITE">
+  
+  <object runtimeID="601" className="UIPICKERSMALLVIEW" frame="4,0,104,225"/>
+  <object runtimeID="602" className="UIPICKERSMALLVIEW" frame="117,0,104,225"/>
+  <object runtimeID="603" className="UIPICKERSMALLVIEW" frame="230,0,104,225"/>
+  <object runtimeID="604" className="UIPICKERSMALLVIEW" frame="343,0,104,225"/>
+  <object runtimeID="605" className="UIPICKERSMALLVIEW" frame="456,0,104,225"/>
+  <object runtimeID="606" className="UIPICKERSMALLVIEW" frame="569,0,104,225"/>
+  <object runtimeID="607" className="UIPICKERSMALLVIEW" frame="682,0,104,225"/>
+
+</object>
+

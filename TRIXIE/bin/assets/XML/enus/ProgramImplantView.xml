@@ -1,0 +1,61 @@
+<object className="UIVIEW" frame="0,0,1024,600"  backgroundColor="WHITE">
+
+	<object className="UISTATUSBARVIEW" frame="0,0,1024,90" />
+
+<object runtimeID ="30000" className="UISCROLLVIEW" frame="10,105,1004,425" pixelSkip="85" numItems="8" backgroundColor="WHITE">
+
+
+    <object   className="UIVIEW" frame="0,0, 1024, 85" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 994, 81" backgroundColor="GRAY"/>
+      <object  runtimeID="30001"  className="UILABELVIEW" frame="14,9, 650, 66" backgroundColor="GRAY" text=" Demand Mode" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+	   <object runtimeID="30009" className="UIBUTTONVIEW" frame="942,18,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+
+	</object>
+    <object    className="UIVIEW" frame="0,85, 1024, 85" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 994, 81" backgroundColor="GRAY"/>
+      <object  runtimeID="30002"  className="UILABELVIEW" frame="14,9, 650, 66" backgroundColor="GRAY" text=" Demand Differential Setpoint:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+      <object runtimeID="30010" className="UIBUTTONVIEW" frame="942,18,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+    </object>
+    <object    className="UIVIEW" frame="0,170, 1024, 85" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 994, 81" backgroundColor="GRAY"/>
+      <object  runtimeID="30003"  className="UILABELVIEW" frame="14,9, 650, 66" backgroundColor="GRAY" text=" Target Condenser LWT:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+      <object runtimeID="30011" className="UIBUTTONVIEW" frame="942,18,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+    </object>
+
+    <object    className="UIVIEW" frame="0,255, 1024, 85" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 994, 81" backgroundColor="GRAY"/>
+      <object  runtimeID="30004"  className="UILABELVIEW" frame="14,9, 650, 66" backgroundColor="GRAY" text=" Target Tank Temperature:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+      <object runtimeID="30012" className="UIBUTTONVIEW" frame="942,18,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+    </object>
+
+  <object className="UIVIEW" frame="0,340, 1024, 85" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 994, 81" backgroundColor="GRAY"/>      
+      <object  runtimeID="30005"  className="UILABELVIEW" frame="14,9, 650, 66" backgroundColor="GRAY" text=" Purge Cut Out Temperature:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+      <object runtimeID="30013" className="UIBUTTONVIEW" frame="942,18,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+    </object>
+
+	  <object className="UIVIEW" frame="0,425, 1024, 85" backgroundColor="WHITE">
+		  <object  className="UIVIEW" frame="10,2, 994, 81" backgroundColor="GRAY"/>
+		  <object  runtimeID="30006"  className="UILABELVIEW" frame="14,9, 650, 66" backgroundColor="GRAY" text=" Purge Max Time:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+		  <object runtimeID="30014" className="UIBUTTONVIEW" frame="942,18,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+	  </object>
+
+	  <object className="UIVIEW" frame="0,510, 1024, 85" backgroundColor="WHITE">
+		  <object  className="UIVIEW" frame="10,2, 994, 81" backgroundColor="GRAY"/>
+		  <object  runtimeID="30007"  className="UILABELVIEW" frame="14,9, 650, 66" backgroundColor="GRAY" text=" Cold Sensor Cut-In:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+		  <object runtimeID="30015" className="UIBUTTONVIEW" frame="942,18,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+	  </object>
+
+	  <object className="UIVIEW" frame="0,595, 1024, 85" backgroundColor="WHITE">
+		  <object  className="UIVIEW" frame="10,2, 994, 81" backgroundColor="GRAY"/>
+		  <object  runtimeID="30008"  className="UILABELVIEW" frame="14,9, 650, 66" backgroundColor="GRAY" text=" Hot Sensor Cut-In:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+		  <object runtimeID="30016" className="UIBUTTONVIEW" frame="942,18,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+	  </object>
+
+  </object>
+ 
+  <object  className="UISOFTKEYVIEW"  frame="0,530,1024,70" />
+
+
+</object>
+
