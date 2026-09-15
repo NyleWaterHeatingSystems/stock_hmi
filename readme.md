@@ -1,6 +1,6 @@
-stock HMI provissioner for edatech ED-HMI2220-070C
-** This is an online installer, for now, it needs internet to retrive libx11-dev and libpaho-dev**
-Work in Progress, multiple factors for confussion, addressed below.
+stock HMI provissioner for edatech ED-HMI2220-070C  
+** This is an online installer, for now, it needs internet to retrive libx11-dev and libpaho-dev**  
+Work in Progress, multiple factors for confussion, addressed below.  
 Synopis:  
 Download the package, and run the script on a stock installation of the 
 edatech ED-HMI2220-070C
