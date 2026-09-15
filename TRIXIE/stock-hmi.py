@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Zero-input provisioning for an EDATEC stock OS running HPC_LinuxGUI."""
-#V2
-print("Zero-input provisioning for an EDATEC stock OS running HPC_LinuxGUI. v2")
+
 from __future__ import annotations
 
 import grp
