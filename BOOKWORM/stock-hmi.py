@@ -206,6 +206,14 @@ def install_application(source_dir: Path, app_dir: Path) -> None:
     if dependency_check.returncode != 0 or "not found" in combined_output:
         raise RuntimeError(f"HPC_LinuxGUI dependency check failed:\n{combined_output}")
 
+    installed_executable = app_dir / "HPC_LinuxGUI"
+    run(
+        [
+            command_path("setcap"),
+            "cap_net_admin,cap_net_raw+ep",
+            str(installed_executable),
+        ]
+    )
 
 def configure_hostname() -> None:
     run(["hostnamectl", "set-hostname", HMI_HOSTNAME])
