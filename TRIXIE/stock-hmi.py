@@ -387,6 +387,8 @@ Environment=HOME=/home/nwhs
 Environment="QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/touchscreen"
 Environment="TSLIB_TSDEVICE=/dev/input/touchscreen"
 Environment="SDL_MOUSEDEV=/dev/input/touchscreen"
+# Turn off cursor, and disable blinks
+ExecStartPre=+/bin/sh -c '/usr/bin/setterm --term linux --clear all --cursor off < /dev/tty1 > /dev/tty1'
 ExecStartPre=+/bin/sh -c 'echo 0 > /sys/class/graphics/fbcon/cursor_blink'
 ExecStart=/home/nwhs/hpc-hmi/bin/HPC_LinuxGUI 192.168.0.2
 Restart=always
