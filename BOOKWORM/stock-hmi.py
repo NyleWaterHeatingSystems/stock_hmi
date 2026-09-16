@@ -440,12 +440,27 @@ def provision() -> None:
     env = os.environ.copy()
     env["DEBIAN_FRONTEND"] = "noninteractive"
     logging.info("Installing runtime packages")
-    subprocess.run(["apt-get", "update"], check=True, env=env)
+    deb_dir = bundle_directory() / "debs"
+    deb_files = sorted(deb_dir.glob("*.deb"))
+
+    if not deb_files:
+        raise RuntimeError(f"No offline packages found in: {deb_dir}")
+
     subprocess.run(
-        ["apt-get", "install", "-y", "--no-install-recommends", *PACKAGES],
+        [
+            "dpkg",
+            "--install",
+            *map(str, deb_files),
+        ],
         check=True,
         env=env,
     )
+    #subprocess.run(["apt-get", "update"], check=True, env=env)
+    #subprocess.run(
+    #    ["apt-get", "install", "-y", "--no-install-recommends", *PACKAGES],
+    #    check=True,
+    #    env=env,
+    #)
 
     ensure_user()
     install_application(source_dir, app_dir)
