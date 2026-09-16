@@ -257,6 +257,17 @@ def configure_sudo_access() -> None:
     sudoers.chmod(0o440)
     run([command_path("visudo"), "--check", "--file", str(sudoers)])
 
+def configure_touchscreen_udev() -> None:
+    rules_path = Path("/etc/udev/rules.d/99-touchscreen.rules")
+    rules_path.write_text(
+        'SUBSYSTEM=="input", KERNEL=="event*", '
+        'ENV{ID_INPUT_TOUCHSCREEN}=="1", '
+        'SYMLINK+="input/touchscreen", TAG+="systemd"\n',
+        encoding="utf-8",
+    )
+
+    run(["udevadm", "control", "--reload-rules"])
+    run(["udevadm", "trigger", "--subsystem-match=input"])
 
 def configure_legacy_user_cleanup() -> None:
     """Lock old login users now and remove them safely during the reboot."""
@@ -438,6 +449,7 @@ def provision() -> None:
     install_application(source_dir, app_dir)
     configure_hostname()
     configure_sudo_access()
+    configure_touchscreen_udev()
     configure_boot(app_dir)
     configure_legacy_user_cleanup()
 
