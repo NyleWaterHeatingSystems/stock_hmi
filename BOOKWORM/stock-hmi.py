@@ -14,7 +14,14 @@ import subprocess
 import sys
 import time
 import traceback
-
+"""
+This script assumes a stock OS is pre provissioned with:
+Bookworm, Debain 12, and drivers provided
+user: pi
+pass: raspberry
+upon completion, pi user will not exist, replaced by nwhs
+The HPC_LinuxGUI is set to run with sudo permissions via setcap
+"""
 
 APP_USER = "nwhs"
 LEGACY_LOGIN_USERS = ("pi",)
@@ -361,16 +368,22 @@ After=NetworkManager.service getty@tty1.service hmi-console.service systemd-user
 
 [Service]
 Type=simple
-User={APP_USER}
-Group={APP_USER}
-{groups_line}WorkingDirectory={app_dir}
-Environment=HOME=/home/{APP_USER}
-ExecStart={app_dir}/HPC_LinuxGUI {MQTT_HOST}
+User=nwhs
+Group=nwhs
+SupplementaryGroups=video render input dialout netdev gpio i2c spi tty
+WorkingDirectory=/home/nwhs/hpc-hmi/bin
+Environment=HOME=/home/nwhs
+Environment="QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/touchscreen"
+Environment="TSLIB_TSDEVICE=/dev/input/touchscreen"
+Environment="SDL_MOUSEDEV=/dev/input/touchscreen"
+ExecStartPre=+/bin/sh -c 'echo 0 > /sys/class/graphics/fbcon/cursor_blink'
+ExecStart=/home/nwhs/hpc-hmi/bin/HPC_LinuxGUI 192.168.0.2
 Restart=always
 RestartSec=2
 StandardInput=null
 StandardOutput=journal
 StandardError=journal
+
 
 [Install]
 WantedBy=multi-user.target

@@ -126,3 +126,6 @@ The referenced installer command is:
 ```bash
 curl -s https://apt.edatec.cn/bsp/ed-install.sh | sudo bash -s hmi2220-101c
 ```
+
+Trixie compatable drivers  
+<https://edatec.cn/docs/an/an44-use-7-inch-and-10.1-inch-hmi-on-standard-rpi-os/>
