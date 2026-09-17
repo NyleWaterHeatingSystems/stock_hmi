@@ -1,9 +1,0 @@
-<object className="UIVIEW" frame="0,0,800,480"  backgroundColor="WHITE">
-
-  <object className="UISTATUSBARVIEW" frame="0,0,800,90"/>
-  <object className="UILOCATIONPICKERVIEW" frame="251,200,521,225"   color  ="BLUE"/>
-  <object className="UISOFTKEYVIEW"  frame="0,390,480,70" />
-
-
-</object>
-
