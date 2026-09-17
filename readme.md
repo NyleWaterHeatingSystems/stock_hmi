@@ -8,9 +8,9 @@
 ## Overview
 
 This package provisions a stock EDATEC ED-HMI2220-070C for use as an HPC HMI.
-Download the package to a stock EDATEC OS installation, then run the provisioning
+Load the package to a stock EDATEC OS installation, then run the provisioning
 script. The script configures the operating system, user account, application,
-and startup service.
+and startup services.
 
 ## Package structure
 
