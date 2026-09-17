@@ -24,8 +24,8 @@ OS_Version/
 │   ├── iptables_1.8.9-2_arm64.deb
 │   ├── libpaho-mqtt1.3_1.3.12-1_arm64.deb
 │   └── libx11-dev_2%3a1.8.4-2+deb12u2_arm64.deb
-└── stock-hmi.py
-
+├── stock-hmi.py
+└── stock-hmi
 ```
 
 The `bin` directory must contain the precompiled `HPC_LinuxGUI` executable, its
@@ -73,7 +73,43 @@ in `stock-hmi.py` must also be updated.
 - To change OS, user-account, or service configuration, edit `stock-hmi.py`.
 - To add additional packages, include the deb files in the debs directoy.
 - The application is installed from a precompiled binary; it is not compiled by
-  stock-hmi.py.
+  stock-hmi.py.  
+  
+## Building a compiled binary of stock-hmi.py
+
+The Python script can be packaged as a single executable with PyInstaller:
+
+```bash
+python3 -m PyInstaller --onefile --name stock-hmi stock-hmi.py
+```
+
+The resulting executable will be placed at:
+
+```text
+dist/stock-hmi
+```
+Copy the compiled stock-hmi binary to the root project directory. 
+
+PyInstaller packages only the provisioning script. The `bin/`, `debs` directories and 
+thier contents must still be distributed alongside the executable as
+bundled resources.
+
+## Maintenance use case 1:
+update the HPC_LinuxGUI binary executable. Succesive Runs do not require recompiling.
+
+## Maintenance use case 2:
+Add additional software packages ( deb files ) Succesive Runs do not require recompiling.
+
+## Maintenance use case 3:
+Change some settings for how stock-hmi.py configures the user account, services, or OS 
+behavior. This requires recompiling, but only in the application use case where you 
+might expect to simply double click the application binary, to provission a unit. 
+running:
+```code
+$./stock-hmi.py
+```
+would work. The compled application is intended to be a simple means for a non-technical user
+to go from a stock HMI to an HPC ready device. 
 
 ## Security
 
@@ -100,24 +136,6 @@ EDATEC support for Debian 13 ( Trixie ) is still incomplete for some HMI hardwar
 variants. Display, touchscreen, and other device-specific drivers may behave
 differently between models and OS releases.
 
-## Building a compiled binary of stock-hmi.py
-
-The Python script can be packaged as a single executable with PyInstaller:
-
-```bash
-python3 -m PyInstaller --onefile --name stock-hmi stock-hmi.py
-```
-
-The resulting executable will be placed at:
-
-```text
-dist/stock-hmi
-```
-Copy the compiled stock-hmi binary to the root project directory. 
-
-PyInstaller packages only the provisioning script. The `bin/`, `debs` directories and 
-thier contents must still be distributed alongside the executable as
-bundled resources.
 
 
 ## EDATEC reference
