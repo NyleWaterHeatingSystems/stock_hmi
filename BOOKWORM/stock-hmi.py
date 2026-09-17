@@ -31,6 +31,8 @@ LEGACY_LOGIN_USERS = ("pi",)
 HMI_HOSTNAME = "hpc"
 MQTT_HOST = "127.0.0.1"
 AUTO_REBOOT = True
+RELEASE_REPOSITORY = ("https://github.com/NyleWaterHeatingSystems/hpc-releases.git")
+
 
 # Salted SHA-512 crypt hash for the standard deployment password. The literal
 # password is intentionally not stored in this source or the compiled program.
@@ -41,7 +43,7 @@ APP_PASSWORD_HASH = (
     "Iw1xKqS37Wg/wlI82ouLy0"
 )
 
-# I should re-think this, as an offline installer, and get the iptables deb
+# I should re-think this, as an offline installer
 PACKAGES = (
     "iptables",
     "libpaho-mqtt1.3",
@@ -52,6 +54,158 @@ PACKAGES = (
 
 LOG_FILE = Path("/var/log/hpc-stock-installer.log")
 
+def application_directory():
+    """
+    Directory containing stock-hmi.py, or the compiled stock-hmi executable.
+    The external bin/ and debs/ directories live here.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+
+    return Path(__file__).resolve().parent
+
+
+def calculate_sha256(filename):
+    digest = hashlib.sha256()
+
+    with filename.open("rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+
+    return digest.hexdigest()
+
+
+def update_installer_payload():
+    """
+    Download the latest HMI release and update this installer's bin/ payload.
+
+    This modifies the installer package on the maintainer's computer.
+    It does not update an already-provisioned HMI.
+    """
+    installer_directory = application_directory()
+    bin_directory = installer_directory / "bin"
+    settings_file = bin_directory / "settings.txt"
+
+    if not bin_directory.is_dir():
+        raise RuntimeError(f"Missing installer payload directory: {bin_directory}")
+
+    if not settings_file.is_file():
+        raise RuntimeError(f"Missing settings file: {settings_file}")
+
+    with tempfile.TemporaryDirectory(prefix="hpc-release-") as temp_name:
+        temp_directory = Path(temp_name)
+        repository_directory = temp_directory / "hpc-releases"
+
+        print("Downloading latest HPC release")
+
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--depth",
+                "1",
+                "--branch",
+                "main",
+                "--no-tags",
+                RELEASE_REPOSITORY,
+                str(repository_directory),
+            ],
+            check=True,
+        )
+
+        latest_directory = (repository_directory / "LATEST").resolve()
+        manifest_file = latest_directory / "manifest.json"
+
+        if not manifest_file.is_file():
+            raise RuntimeError(
+                f"Release does not contain a manifest: {manifest_file}"
+            )
+
+        with manifest_file.open("r", encoding="utf-8") as source:
+            manifest = json.load(source)
+
+        try:
+            release_version = manifest["release_version"]
+            hmi_component = manifest["components"]["hmi"]
+            release_filename = hmi_component["file"]
+            expected_sha256 = hmi_component["sha256"].lower()
+        except (KeyError, TypeError) as error:
+            raise RuntimeError(
+                "The release manifest does not contain a valid HMI component"
+            ) from error
+
+        # Prevent a manifest filename from escaping LATEST/.
+        if Path(release_filename).name != release_filename:
+            raise RuntimeError(
+                f"Invalid HMI filename in manifest: {release_filename}"
+            )
+
+        release_binary = latest_directory / release_filename
+        release_assets = latest_directory / "assets"
+
+        if not release_binary.is_file():
+            raise RuntimeError(
+                f"HMI release binary does not exist: {release_binary}"
+            )
+
+        if not release_assets.is_dir():
+            raise RuntimeError(
+                f"HMI release assets do not exist: {release_assets}"
+            )
+
+        actual_sha256 = calculate_sha256(release_binary)
+
+        if actual_sha256.lower() != expected_sha256:
+            raise RuntimeError(
+                "HMI binary SHA-256 verification failed:\n"
+                f"  Expected: {expected_sha256}\n"
+                f"  Actual:   {actual_sha256}"
+            )
+
+        # Assemble the complete replacement before touching bin/.
+        staged_bin = installer_directory / ".bin-update"
+
+        if staged_bin.exists():
+            shutil.rmtree(staged_bin)
+
+        # Preserve settings.txt and any other installer-specific bin files.
+        shutil.copytree(bin_directory, staged_bin)
+
+        staged_assets = staged_bin / "assets"
+
+        if staged_assets.exists():
+            shutil.rmtree(staged_assets)
+
+        shutil.copytree(release_assets, staged_assets)
+
+        installed_binary = staged_bin / "HPC_LinuxGUI"
+        shutil.copy2(release_binary, installed_binary)
+        installed_binary.chmod(0o755)
+
+        # Record exactly which upstream release supplied this payload.
+        shutil.copy2(
+            manifest_file,
+            staged_bin / "release-manifest.json",
+        )
+
+        previous_bin = installer_directory / ".bin-previous"
+
+        if previous_bin.exists():
+            shutil.rmtree(previous_bin)
+
+        os.replace(bin_directory, previous_bin)
+
+        try:
+            os.replace(staged_bin, bin_directory)
+        except Exception:
+            os.replace(previous_bin, bin_directory)
+            raise
+        else:
+            shutil.rmtree(previous_bin)
+
+        print(f"Installer payload updated to {release_version}")
+        print(f"HMI source file: {release_filename}")
+        print(f"Installed as: {bin_directory / 'HPC_LinuxGUI'}")
 
 def frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
@@ -482,25 +636,71 @@ def provision() -> None:
 
 
 def main() -> int:
-    arguments = set(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="Provision a stock EDATEC HMI"
+    )
 
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help=(
+            "refresh bin/ from the release selected by "
+            "hpc-releases/LATEST, then exit"
+        ),
+    )
+
+    # Internal arguments used when relaunching from the desktop or through sudo.
+    parser.add_argument(
+        "--terminal",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+
+    parser.add_argument(
+        "--as-root",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+
+    args = parser.parse_args()
+
+    # Maintainer operation. It must never fall through into provisioning.
+    if args.update:
+        update_installer_payload()
+        return 0
+
+    # Everything below this point is the stock-HMI installation operation.
     if os.geteuid() != 0:
-        if not sys.stdout.isatty() and "--terminal" not in arguments:
+        if not sys.stdout.isatty() and not args.terminal:
             if open_own_terminal():
                 return 0
+
         return elevate_without_prompt()
 
     configure_logging()
+
     try:
         provision()
-    except Exception as exc:  # Keep a deployment failure visible and logged.
+    except Exception as exc:
         logging.error("Provisioning failed: %s", exc)
         logging.error("%s", traceback.format_exc())
         show_notification("HPC installer failed", str(exc), "critical")
         time.sleep(20)
         return 1
+
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        exit_status = main()
+    except (
+        OSError,
+        RuntimeError,
+        json.JSONDecodeError,
+        subprocess.CalledProcessError,
+    ) as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        exit_status = 1
+
+    raise SystemExit(exit_status)

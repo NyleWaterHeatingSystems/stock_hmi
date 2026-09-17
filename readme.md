@@ -3,7 +3,7 @@
 > **Work in progress:** This is now an offline installer, with the option 
 >  to update the HPC_HMI software (online) From:
 >  https://github.com/NyleWaterHeatingSystems/hpc-releases
-> `libx11-dev` and `libpaho-mqtt-dev`.
+
 
 ## Overview
 
@@ -33,8 +33,9 @@ complete `assets` directory, and `settings.txt`.
 
 The `debs` folder must contain both the the HMI program dependencies, AND
 the additional software packages you want to install. 
+```bash
 $ stock-hmi --update
-
+```
 Will only update the HPC HMI software, and WILL NOT try to update the OS_version
 matched application dependencies or additional software packages.
 
@@ -46,7 +47,7 @@ Run the provisioner from the directory containing `stock-hmi.py`, `bin/` and `de
 $./stock-hmi.py
 ```
 The installer may also operated from a USB stick, by running the precompiled
-`stock-hmi` application. 
+`stock-hmi` application provided it is accompanied by the contents of `bin` and `debs`
 
 ## Installation behavior
 
@@ -68,11 +69,11 @@ in `stock-hmi.py` must also be updated.
 
 ## Maintenance and rebuilding
 
-- To update the HMI application, replace `HPC_LinuxGUI`, `assets/`, and
-  `settings.txt` in `bin/` before running the provisioner.
+- To update the HMI application, run $`./stock-hmi.py --update`  
 - To change OS, user-account, or service configuration, edit `stock-hmi.py`.
+- To add additional packages, include the deb files in the debs directoy.
 - The application is installed from a precompiled binary; it is not compiled by
-  the provisioner.
+  stock-hmi.py.
 
 ## Security
 
@@ -91,7 +92,7 @@ the operating system:
 | Debian 13 (Trixie) | 2.38 | `TRIXIE/` |
 
 For now, compiling the HPC_LinuxGUI on the OLD Stable ( BOOKWORM )
-allows the HMI binary HPC_LinuxGUI to run on both the Old stable, and updated
+allows the HMI binary HPC_LinuxGUI to run on both the Old Stable, and updated
 Current Stable ( TRIXIE ) releases. This will be simpler than maintaining 
 two versions.  
 
@@ -99,7 +100,7 @@ EDATEC support for Debian 13 ( Trixie ) is still incomplete for some HMI hardwar
 variants. Display, touchscreen, and other device-specific drivers may behave
 differently between models and OS releases.
 
-## Building a standalone provisioner
+## Building a compiled binary of stock-hmi.py
 
 The Python script can be packaged as a single executable with PyInstaller:
 
