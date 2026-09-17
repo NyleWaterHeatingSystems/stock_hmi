@@ -2,8 +2,10 @@
 """Zero-input provisioning for an EDATEC stock OS running HPC_LinuxGUI."""
 
 from __future__ import annotations
-
+import argparse
+import hashlib
 import grp
+import json
 import logging
 import os
 from pathlib import Path
@@ -13,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile 
 import traceback
 """
 This script assumes a stock OS is pre provissioned with:
@@ -38,14 +41,13 @@ APP_PASSWORD_HASH = (
     "Iw1xKqS37Wg/wlI82ouLy0"
 )
 
+# I should re-think this, as an offline installer, and get the iptables deb
 PACKAGES = (
     "iptables",
     "libpaho-mqtt1.3",
     "libx11-dev",
     "network-manager",
     "openssh-server",
-    "rsync",
-    "sudo",
 )
 
 LOG_FILE = Path("/var/log/hpc-stock-installer.log")
@@ -455,12 +457,6 @@ def provision() -> None:
         check=True,
         env=env,
     )
-    #subprocess.run(["apt-get", "update"], check=True, env=env)
-    #subprocess.run(
-    #    ["apt-get", "install", "-y", "--no-install-recommends", *PACKAGES],
-    #    check=True,
-    #    env=env,
-    #)
 
     ensure_user()
     install_application(source_dir, app_dir)

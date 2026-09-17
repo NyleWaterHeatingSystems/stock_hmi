@@ -1,7 +1,8 @@
 # Stock HMI Provisioner for the EDATEC ED-HMI2220-070C
 
-> **Work in progress:** This is currently an online installer. The HMI must have
-> internet access so the provisioner can install required packages, including
+> **Work in progress:** This is now an offline installer, with the option 
+>  to update the HPC_HMI software (online) From:
+>  https://github.com/NyleWaterHeatingSystems/hpc-releases
 > `libx11-dev` and `libpaho-mqtt-dev`.
 
 ## Overview
@@ -14,26 +15,38 @@ and startup service.
 ## Package structure
 
 ```text
-stock-hmi.py
-bin/
-├── HPC_LinuxGUI
-├── assets/
-└── settings.txt
+OS_Version/
+├── bin
+│   ├── assets
+│   ├── HPC_LinuxGUI
+│   └── settings.txt
+├── debs
+│   ├── iptables_1.8.9-2_arm64.deb
+│   ├── libpaho-mqtt1.3_1.3.12-1_arm64.deb
+│   └── libx11-dev_2%3a1.8.4-2+deb12u2_arm64.deb
+└── stock-hmi.py
+
 ```
 
 The `bin` directory must contain the precompiled `HPC_LinuxGUI` executable, its
 complete `assets` directory, and `settings.txt`.
 
+The `debs` folder must contain both the the HMI program dependencies, AND
+the additional software packages you want to install. 
+$ stock-hmi --update
+
+Will only update the HPC HMI software, and WILL NOT try to update the OS_version
+matched application dependencies or additional software packages.
+
 ## Usage
 
-Run the provisioner from the directory containing `stock-hmi.py` and `bin/`:
+Run the provisioner from the directory containing `stock-hmi.py`, `bin/` and `debs`:
 
 ```bash
-sudo python3 stock-hmi.py
+$./stock-hmi.py
 ```
-
-The current installer requires an internet connection to retrieve its package
-dependencies.
+The installer may also operated from a USB stick, by running the precompiled
+`stock-hmi` application. 
 
 ## Installation behavior
 
@@ -65,7 +78,7 @@ in `stock-hmi.py` must also be updated.
 
 No passwords are stored in the provisioning script. Installation of the HMI
 application is based on the supplied precompiled `HPC_LinuxGUI` binary and its
-supporting files.
+supporting files. 
 
 ## OS and glibc compatibility
 
@@ -77,20 +90,12 @@ the operating system:
 | Debian 12 (Bookworm) | 2.36 | `BOOKWORM/` |
 | Debian 13 (Trixie) | 2.38 | `TRIXIE/` |
 
-A binary built on Trixie may require symbols introduced in glibc 2.38 and will
-not run on the stock Bookworm image, which provides glibc 2.36. The loader will
-typically report an error such as `GLIBC_2.38 not found`.
+For now, compiling the HPC_LinuxGUI on the OLD Stable ( BOOKWORM )
+allows the HMI binary HPC_LinuxGUI to run on both the Old stable, and updated
+Current Stable ( TRIXIE ) releases. This will be simpler than maintaining 
+two versions.  
 
-A binary built on Bookworm generally has the safer compatibility baseline and
-will normally run on Trixie, although compatibility can still be affected by
-other dynamically linked libraries.
-
-Do not attempt to solve this by manually upgrading `libc6` on the stock image.
-A partial glibc upgrade can make the operating system unusable. Instead, use the
-`HPC_LinuxGUI` build that matches the target OS, or build on the oldest OS that
-must be supported.
-
-EDATEC support for Debian 13 (Trixie) is still incomplete for some HMI hardware
+EDATEC support for Debian 13 ( Trixie ) is still incomplete for some HMI hardware
 variants. Display, touchscreen, and other device-specific drivers may behave
 differently between models and OS releases.
 
@@ -107,13 +112,12 @@ The resulting executable will be placed at:
 ```text
 dist/stock-hmi
 ```
+Copy the compiled stock-hmi binary to the root project directory. 
 
-PyInstaller packages only the provisioning script. The `bin/` directory and its
-contents must still be distributed alongside the executable unless they are
-explicitly added to the PyInstaller bundle and the script is updated to locate
+PyInstaller packages only the provisioning script. The `bin/`, `debs` directories and 
+thier contents must still be distributed alongside the executable as
 bundled resources.
 
-> **Note:** The PyInstaller build has not yet been tested.
 
 ## EDATEC reference
 
@@ -124,7 +128,7 @@ EDATEC documents its firmware-package installation process here:
 The referenced installer command is:
 
 ```bash
-curl -s https://apt.edatec.cn/bsp/ed-install.sh | sudo bash -s hmi2220-101c
+curl -s https://apt.edatec.cn/bsp/ed-install.sh | sudo bash -s hmi2220-070c
 ```
 
 Trixie compatable drivers  
