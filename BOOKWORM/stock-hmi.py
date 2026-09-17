@@ -408,6 +408,7 @@ def configure_sudo_access() -> None:
     sudoers.write_text(
         f"{APP_USER} ALL=(ALL:ALL) ALL\n"
         f"{APP_USER} ALL=(root) NOPASSWD: {command_path('nmcli')}\n",
+        f"{APP_USER} ALL=(root) NOPASSWD: {command_path('ip')}\n",
         encoding="utf-8",
     )
     sudoers.chmod(0o440)
