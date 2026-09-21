@@ -24,7 +24,6 @@ OS_Version/
 │   ├── iptables_1.8.9-2_arm64.deb
 │   ├── libpaho-mqtt1.3_1.3.12-1_arm64.deb
 │   └── libx11-dev_2%3a1.8.4-2+deb12u2_arm64.deb
-├── stock-hmi.py
 └── stock-hmi
 ```
 
