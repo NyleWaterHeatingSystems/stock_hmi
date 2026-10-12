@@ -1,0 +1,53 @@
+### 1. fat32 file permissions such that execut flag is not set, so can not execute. ::**fixed
+### 2. missing dependencies: libip6tc2 is not installed.                              ::**fixed
+### 3. stock kernel is not up-to-date with ri-pi OS bookworm repo:               still working on.
+       uaname -a 
+       Linux raspberrypi 6.6.31-rp-v8 #18
+       which is not the same version Ive been using.
+       
+
+       
+
+2026-10-12 19:33:01,364  Starting stock EDATEC application-layer provisioning
+2026-10-12 19:33:01,364  Application source: /media/pi/2ef5c51a-da48-415a-ac59-7ac3c10a8101/bin
+2026-10-12 19:33:01,365  Installing runtime packages
+(Reading database ... 131717 files and directories currently installed.)
+Preparing to unpack .../iptables_1.8.9-2_arm64.deb ...
+Unpacking iptables (1.8.9-2) over (1.8.9-2) ...
+Preparing to unpack .../libip6tc2_1.8.9-2_arm64.deb ...
+Unpacking libip6tc2:arm64 (1.8.9-2) over (1.8.9-2) ...
+Preparing to unpack .../libpaho-mqtt1.3_1.3.12-1_arm64.deb ...
+Unpacking libpaho-mqtt1.3:arm64 (1.3.12-1) over (1.3.12-1) ...
+Preparing to unpack .../libx11-dev_2%3a1.8.4-2+deb12u2_arm64.deb ...
+Unpacking libx11-dev:arm64 (2:1.8.4-2+deb12u2) over (2:1.8.4-2+deb12u2) ...
+Setting up libip6tc2:arm64 (1.8.9-2) ...
+Setting up libpaho-mqtt1.3:arm64 (1.3.12-1) ...
+Setting up libx11-dev:arm64 (2:1.8.4-2+deb12u2) ...
+Setting up iptables (1.8.9-2) ...
+Processing triggers for man-db (2.11.2-2) ...
+Processing triggers for libc-bin (2.36-9+rpt2+deb12u9) ...
+2026-10-12 19:33:04,255  Running: usermod --append --groups sudo,video,render,input,dialout,netdev,gpio,i2c,spi nwhs
+2026-10-12 19:33:04,279  Running: usermod --shell /bin/bash nwhs
+usermod: no changes
+2026-10-12 19:33:04,284  Running: usermod --password $6$qBuEoYkjKWbrHgkX$v/sS5WyBz7TuryebGPQV6oSSrQ9XWZcpkURMW2UeMsTapJXDK12Xt3ZtzyCXOdShIw1xKqS37Wg/wlI82ouLy0 nwhs
+2026-10-12 19:33:04,315  Running: /usr/bin/rsync -a --delete --chown=nwhs:nwhs /media/pi/2ef5c51a-da48-415a-ac59-7ac3c10a8101/bin/ /home/nwhs/hpc-hmi/bin/
+2026-10-12 19:33:04,378  Running: chown -R nwhs:nwhs /home/nwhs/hpc-hmi
+2026-10-12 19:33:04,385  Running: chmod 0755 /home/nwhs/hpc-hmi/bin/HPC_LinuxGUI
+2026-10-12 19:33:04,397  ldd output:
+
+2026-10-12 19:33:04,397  Provisioning failed: HPC_LinuxGUI dependency check failed:
+	not a dynamic executable
+
+2026-10-12 19:33:04,399  Traceback (most recent call last):
+  File "stock-hmi.py", line 684, in main
+  File "stock-hmi.py", line 617, in provision
+  File "stock-hmi.py", line 370, in install_application
+RuntimeError: HPC_LinuxGUI dependency check failed:
+	not a dynamic executable
+
+
+
+ERROR: The stock login does not have passwordless sudo. Automatic provisioning cannot continue.
+
+### **. sudo chown -R "$(id -un):$(id -gn)" "/media/$USER/USB_NAME"
+       ext3 format
