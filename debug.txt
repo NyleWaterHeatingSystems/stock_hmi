@@ -8,10 +8,10 @@
 
        
 
-2026-10-12 19:33:01,364  Starting stock EDATEC application-layer provisioning
-2026-10-12 19:33:01,364  Application source: /media/pi/2ef5c51a-da48-415a-ac59-7ac3c10a8101/bin
-2026-10-12 19:33:01,365  Installing runtime packages
-(Reading database ... 131717 files and directories currently installed.)
+2026-10-12 21:42:08,483  Starting stock EDATEC application-layer provisioning
+2026-10-12 21:42:08,484  Application source: /media/pi/2ef5c51a-da48-415a-ac59-7ac3c10a8101/bin
+2026-10-12 21:42:08,485  Installing runtime packages
+(Reading database ... 134993 files and directories currently installed.)
 Preparing to unpack .../iptables_1.8.9-2_arm64.deb ...
 Unpacking iptables (1.8.9-2) over (1.8.9-2) ...
 Preparing to unpack .../libip6tc2_1.8.9-2_arm64.deb ...
@@ -26,28 +26,33 @@ Setting up libx11-dev:arm64 (2:1.8.4-2+deb12u2) ...
 Setting up iptables (1.8.9-2) ...
 Processing triggers for man-db (2.11.2-2) ...
 Processing triggers for libc-bin (2.36-9+rpt2+deb12u9) ...
-2026-10-12 19:33:04,255  Running: usermod --append --groups sudo,video,render,input,dialout,netdev,gpio,i2c,spi nwhs
-2026-10-12 19:33:04,279  Running: usermod --shell /bin/bash nwhs
+2026-10-12 21:42:11,439  Running: usermod --append --groups sudo,video,render,input,dialout,netdev,gpio,i2c,spi nwhs
+2026-10-12 21:42:11,461  Running: usermod --shell /bin/bash nwhs
 usermod: no changes
-2026-10-12 19:33:04,284  Running: usermod --password $6$qBuEoYkjKWbrHgkX$v/sS5WyBz7TuryebGPQV6oSSrQ9XWZcpkURMW2UeMsTapJXDK12Xt3ZtzyCXOdShIw1xKqS37Wg/wlI82ouLy0 nwhs
-2026-10-12 19:33:04,315  Running: /usr/bin/rsync -a --delete --chown=nwhs:nwhs /media/pi/2ef5c51a-da48-415a-ac59-7ac3c10a8101/bin/ /home/nwhs/hpc-hmi/bin/
-2026-10-12 19:33:04,378  Running: chown -R nwhs:nwhs /home/nwhs/hpc-hmi
-2026-10-12 19:33:04,385  Running: chmod 0755 /home/nwhs/hpc-hmi/bin/HPC_LinuxGUI
-2026-10-12 19:33:04,397  ldd output:
-
-2026-10-12 19:33:04,397  Provisioning failed: HPC_LinuxGUI dependency check failed:
-	not a dynamic executable
-
-2026-10-12 19:33:04,399  Traceback (most recent call last):
+2026-10-12 21:42:11,466  Running: usermod --password $6$qBuEoYkjKWbrHgkX$v/sS5WyBz7TuryebGPQV6oSSrQ9XWZcpkURMW2UeMsTapJXDK12Xt3ZtzyCXOdShIw1xKqS37Wg/wlI82ouLy0 nwhs
+2026-10-12 21:42:11,496  Running: /usr/bin/rsync -a --delete --chown=nwhs:nwhs /media/pi/2ef5c51a-da48-415a-ac59-7ac3c10a8101/bin/ /home/nwhs/hpc-hmi/bin/
+2026-10-12 21:42:11,558  Running: chown -R nwhs:nwhs /home/nwhs/hpc-hmi
+2026-10-12 21:42:11,571  Running: chmod 0755 /home/nwhs/hpc-hmi/bin/HPC_LinuxGUI
+2026-10-12 21:42:11,587  ldd output:
+linux-vdso.so.1 (0x0000007fbb9bf000)
+	libpaho-mqtt3a.so.1 => /lib/aarch64-linux-gnu/libpaho-mqtt3a.so.1 (0x0000007fbb7a0000)
+	libudev.so.1 => /lib/aarch64-linux-gnu/libudev.so.1 (0x0000007fbb750000)
+	libstdc++.so.6 => /lib/aarch64-linux-gnu/libstdc++.so.6 (0x0000007fbb530000)
+	libm.so.6 => /lib/aarch64-linux-gnu/libm.so.6 (0x0000007fbb490000)
+	libgcc_s.so.1 => /lib/aarch64-linux-gnu/libgcc_s.so.1 (0x0000007fbb450000)
+	libc.so.6 => /lib/aarch64-linux-gnu/libc.so.6 (0x0000007fbb2a0000)
+	/lib/ld-linux-aarch64.so.1 (0x0000007fbb982000)
+2026-10-12 21:42:11,588  Running: /usr/sbin/setcap cap_net_admin,cap_net_raw+ep /home/nwhs/hpc-hmi/bin/HPC_LinuxGUI
+2026-10-12 21:42:11,590  Running: hostnamectl set-hostname hpc
+2026-10-12 21:42:11,759  Provisioning failed: Path.write_text() got multiple values for argument 'encoding'
+2026-10-12 21:42:11,761  Traceback (most recent call last):
   File "stock-hmi.py", line 684, in main
-  File "stock-hmi.py", line 617, in provision
-  File "stock-hmi.py", line 370, in install_application
-RuntimeError: HPC_LinuxGUI dependency check failed:
-	not a dynamic executable
+  File "stock-hmi.py", line 619, in provision
+  File "stock-hmi.py", line 408, in configure_sudo_access
+TypeError: Path.write_text() got multiple values for argument 'encoding
 
 
 
-ERROR: The stock login does not have passwordless sudo. Automatic provisioning cannot continue.
-
+##Usefull command
 ### **. sudo chown -R "$(id -un):$(id -gn)" "/media/$USER/USB_NAME"
        ext3 format
