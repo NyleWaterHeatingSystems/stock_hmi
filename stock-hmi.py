@@ -531,8 +531,8 @@ WantedBy=multi-user.target
 
     service_text = f"""[Unit]
 Description=HPC framebuffer HMI
-Wants=NetworkManager.service getty@tty1.service hmi-console.service
-After=NetworkManager.service getty@tty1.service hmi-console.service systemd-user-sessions.service
+Wants=NetworkManager.service hmi-console.service
+After=NetworkManager.service hmi-console.service systemd-user-sessions.service
 
 [Service]
 Type=simple
