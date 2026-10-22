@@ -224,7 +224,7 @@ cat /proc/fb             # lists a framebuffer
 ```
 
 - ✅ The 7" panel shows the boot console and a login prompt.
-- ⏳ `uname -r` / `/proc/fb` output recorded.
+- ✅ `uname -r` → `6.6.31-rpi-v8`; `/proc/fb` → `0 vc4drmfb`.
 - ⏳ Touch works. Use EDATEC's `ed-touchscreen-test` package.
 
 ### 1.5 Prepare the image for cloning ⏳
