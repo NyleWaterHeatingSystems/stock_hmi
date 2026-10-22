@@ -277,8 +277,11 @@ network.
   Expected: `14.1s` total, `multi-user.target reached after 3.7s in userspace`
   (was 27.8 s / 23.5 s). The remaining top item, `NetworkManager-wait-online`
   (6.2 s), does not delay `multi-user.target`, and provisioning masks it.
-- `NetworkManager-wait-online.service` (6 s) is left alone here, because
-  `stock-hmi.py` masks it during provisioning.
+- **No fixed network configuration in the golden image.** All Ethernet ports
+  stay on Pi OS defaults (DHCP). The fixed `eth2` = `192.168.0.1` belongs to
+  provisioning (`stock-hmi.py`), so it is version-controlled and re-applied
+  on every provision or update. The bridged ports are configured by the HMI
+  program at runtime.
 
 #### Cleanup
 
@@ -422,6 +425,11 @@ What `stock-hmi.py` does:
 - `systemctl status hmi.service` is active.
 - Check `/var/log/hpc-stock-installer.log` for errors.
 
+> TODO: `stock-hmi.py` should pin `eth2` to `192.168.0.1/24` (the link to the
+> HPC controller at `192.168.0.2`). Match the port by hardware path, not by
+> name or MAC: `net.ifnames=0` names can change order between boots, and MACs
+> differ per unit. Port and path mapping are still to be collected.
+>
 > TODO: document which address a provisioned HMI uses on Ethernet. The app
 > configures networking via `nmcli`, and earlier units were reached at
 > `192.168.1.2`.
