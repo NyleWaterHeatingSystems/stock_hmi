@@ -282,17 +282,35 @@ network.
 
 #### Cleanup
 
-Remove anything unique to this unit so every flashed HMI is distinct:
+Remove anything unique to this unit so every flashed HMI is distinct. This must
+be the **last** thing done before capture. **Do not boot the HMI again before
+1.6**: booting would recreate the keys and machine ID.
+
+`regenerate_ssh_host_keys` (checked on the first build) deletes the keys, runs
+`ssh-keygen -A`, then disables itself. So it runs exactly once, on each clone's
+first boot. The keys are also removed here so that no private key ends up in the
+image file.
 
 ```bash
-# on the HMI, as the last thing before capture
+# on the HMI
 sudo apt clean
+sudo systemctl enable regenerate_ssh_host_keys.service
 sudo rm -f /etc/ssh/ssh_host_*
-sudo systemctl enable regenerate_ssh_host_keys.service   # Pi OS regenerates keys on next boot
-sudo truncate -s 0 /etc/machine-id                       # regenerated on next boot
+sudo truncate -s 0 /etc/machine-id                       # systemd creates a new one on first boot
+ls -l /var/lib/dbus/machine-id                           # should be a symlink -> /etc/machine-id
 sudo rm -f /var/lib/NetworkManager/*.lease
-rm -f ~/.bash_history ~/kernel-change.sh
-sudo poweroff
+rm -f ~/kernel-change.sh
+```
+
+Verify, then power off without leaving shell history behind:
+
+```bash
+systemctl is-enabled regenerate_ssh_host_keys.service   # enabled
+ls /etc/ssh/ssh_host_* 2>&1                             # No such file or directory
+wc -c < /etc/machine-id                                 # 0
+systemctl is-enabled ed-lte-daemon.service              # disabled
+
+unset HISTFILE; rm -f ~/.bash_history; sudo poweroff
 ```
 
 ### 1.6 Capture and shrink ⏳
