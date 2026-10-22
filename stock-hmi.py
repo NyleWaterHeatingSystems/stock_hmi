@@ -31,7 +31,7 @@ APP_USER = "nwhs"
 # in /etc/login.defs. System accounts and nobody (65534) fall outside it.
 REGULAR_UID_RANGE = range(1000, 60000)
 HMI_HOSTNAME = "hpc"
-HPC_PORT_PROFILE = "hpc-eth2.nmconnection"
+HPC_PORT_PROFILE = "eth2-hpc.nmconnection"
 MQTT_HOST = "127.0.0.1"
 AUTO_REBOOT = True
 RELEASE_REPOSITORY = ("https://github.com/NyleWaterHeatingSystems/hpc-releases.git")
@@ -401,7 +401,7 @@ def configure_hostname() -> None:
 
 
 def configure_hpc_port() -> None:
-    """Pin the HPC controller port to 192.168.0.1; see network/hpc-eth2.nmconnection."""
+    """Pin the HPC controller port to 192.168.0.4; see network/eth2-hpc.nmconnection."""
     source = bundle_directory() / "network" / HPC_PORT_PROFILE
     if not source.is_file():
         raise RuntimeError(f"Missing network profile: {source}")

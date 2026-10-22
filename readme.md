@@ -25,12 +25,12 @@ OS_Version/
 │   ├── libpaho-mqtt1.3_1.3.12-1_arm64.deb
 │   └── libx11-dev_2%3a1.8.4-2+deb12u2_arm64.deb
 ├── network
-│   └── hpc-eth2.nmconnection
+│   └── eth2-hpc.nmconnection
 └── stock-hmi
 ```
 
 The `network` directory holds the NetworkManager profile that pins the HPC
-controller port (eth2) to `192.168.0.1`.
+controller port (eth2) to `192.168.0.4`.
 
 The `bin` directory must contain the precompiled `HPC_LinuxGUI` executable, its
 complete `assets` directory, and `settings.txt`.
