@@ -225,7 +225,13 @@ cat /proc/fb             # lists a framebuffer
 
 - ✅ The 7" panel shows the boot console and a login prompt.
 - ✅ `uname -r` → `6.6.31-rpi-v8`; `/proc/fb` → `0 vc4drmfb`.
-- ⏳ Touch works. Use EDATEC's `ed-touchscreen-test` package.
+- ✅ The touch controller is detected: `10-0014 Goodix Capacitive TouchScreen` →
+  `/dev/input/event5` (`grep -E '^(N|H):' /proc/bus/input/devices`).
+- ⏳ Touches register: `sudo apt install -y evtest && sudo evtest /dev/input/event5`,
+  then tap and drag. Expect `ABS_MT_POSITION_X/Y` and `BTN_TOUCH`.
+- ✅ EDATEC's factory test `touch-test.service` (`/opt/ed-touchscreen-test/ed-touch-test`)
+  is installed **disabled**. Leave it that way so it cannot compete with
+  `HPC_LinuxGUI` for the screen.
 
 ### 1.5 Prepare the image for cloning ⏳
 
