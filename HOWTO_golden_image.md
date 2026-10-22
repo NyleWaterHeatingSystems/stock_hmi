@@ -227,7 +227,7 @@ build are in the "Expected" column.
 | 1 | Panel shows a console | look at the screen | Boot messages, then a `login:` prompt within ~30 s | Run checks 2–4 to find out why |
 | 2 | EDATEC kernel is running | `uname -r` | `6.6.31-rpi-v8` | `6.12.x+rpt-rpi-v8` means the kernel switch did not happen; see the 1.3 fix |
 | 3 | Display driver created a framebuffer | `cat /proc/fb` | `0 vc4drmfb` | Empty: no panel driver. Check 2, and confirm `config.txt` has `dtoverlay=vc4-kms-dsi-edatec-panel-rpi4,...` |
-| 4 | Display outputs | `for c in /sys/class/drm/card*-*; do echo "$c: $(cat $c/status)"; done` | A DSI connector is listed in addition to HDMI-A-1/2 | Only HDMI and Writeback listed: same cause as 3 |
+| 4 | Display outputs | `for c in /sys/class/drm/card*-*; do echo "$c: $(cat $c/status)"; done` | `card0-DSI-1: connected` (HDMI-A-1/2 `disconnected`, Writeback `unknown`) | Only HDMI and Writeback listed: same cause as 3 |
 | 5 | Touch controller detected | `grep -E '^(N\|H):' /proc/bus/input/devices` | `N: Name="10-0014 Goodix Capacitive TouchScreen"` with `H: Handlers=... event5` (the event number may differ) | No Goodix entry: check `sudo dmesg \| grep -i goodix`; the EDATEC packages/overlays may be missing |
 | 6 | Touches register | `sudo apt install -y evtest` then `sudo evtest /dev/input/event5`; tap and drag, Ctrl+C to stop | Lines with `ABS_MT_POSITION_X`, `ABS_MT_POSITION_Y` and `BTN_TOUCH` scroll by while touching, nothing when idle | No events: wrong `eventN`, or a cable or controller fault |
 | 7 | EDATEC factory test is off | `systemctl is-enabled touch-test.service; systemctl is-active touch-test.service` | `disabled` / `inactive` | `sudo systemctl disable --now touch-test.service`; it would compete with `HPC_LinuxGUI` for the screen |
@@ -250,6 +250,30 @@ Harmless output you can ignore:
 by `touch-test.service`. The package has no command-line tool for us.
 
 ### 1.5 Prepare the image for cloning ⏳
+
+#### Pre-checks ✅
+
+| Check | Command | Expected (first build) |
+| --- | --- | --- |
+| SSH keys will regenerate on clones | `systemctl --no-pager cat regenerate_ssh_host_keys.service` | Unit exists (from `raspberrypi-sys-mods`), `Before=ssh.service`, runs `/usr/lib/raspberrypi-sys-mods/regenerate_ssh_host_keys` |
+| Boot time baseline | `systemd-analyze; systemd-analyze blame --no-pager \| head` | `27.8s` total; `ed-lte-daemon.service` alone is `20.0s`; `NetworkManager-wait-online` `6.2s` |
+| EDATEC services | `systemctl --no-pager list-unit-files 'ed-*' '*lte*' '*qmi*'` | `ed-lte-daemon` enabled, `ed-net-monitor` disabled, `ed-usb-tools` enabled |
+| Free space | `df -h /` | 29G, 2.3G used |
+
+Do **not** delete the SSH host keys unless the regeneration unit exists.
+Without keys `ssh.service` fails, and the cloned HMIs are unreachable over the
+network.
+
+#### Boot-time decisions baked into the image ⏳
+
+- **`ed-lte-daemon.service`** waits for the optional cellular modem and adds
+  about 20 s to every boot (also seen on the E180, see `dev_test/readme.md`).
+  Disable it in the golden image. On a unit that does use LTE, run
+  `sudo systemctl enable ed-lte-daemon.service`.
+- `NetworkManager-wait-online.service` (6 s) is left alone here, because
+  `stock-hmi.py` masks it during provisioning.
+
+#### Cleanup
 
 Remove anything unique to this unit so every flashed HMI is distinct:
 
