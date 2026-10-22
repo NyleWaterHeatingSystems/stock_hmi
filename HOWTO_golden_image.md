@@ -56,9 +56,35 @@ Put this folder on the technician USB too, because the technician has no interne
 
 ### Direct-cable networking: laptop ↔ HMI, no Wi-Fi, no router ✅
 
-A fresh HMI asks for an address by DHCP. On a direct cable nothing answers
-unless the laptop does. A NetworkManager **shared** profile makes the laptop the
-DHCP server. It does **not** need internet.
+#### Normal method: the HPC port (eth2) at 192.168.0.1 ✅
+
+The golden image (from 1.5 onward) and every provisioned HMI have a fixed
+address on the **HPC controller port, eth2: `192.168.0.1/24`**. The controller
+itself is `192.168.0.2`. Plug the laptop into that socket, give the laptop
+`192.168.0.100/24`, and SSH in. No DHCP or internet is needed, and any OS works.
+
+```bash
+nmcli con add type ethernet ifname eno1 con-name hmi-eth2 \
+  ipv4.method manual ipv4.addresses 192.168.0.100/24 ipv6.method link-local
+nmcli con up hmi-eth2
+ssh pi@192.168.0.1          # before provisioning
+ssh nwhs@192.168.0.1        # after provisioning
+```
+
+- Never give the laptop `.1` (the HMI) or `.2` (the controller).
+- In the field, unplug the controller cable from eth2 (or put a small switch
+  between them) while the laptop is connected.
+- **Development PCs on a home or office network:** if the Wi-Fi router is also
+  `192.168.0.1` (the first build's PC was), the PC already routes `192.168.0.x`
+  to Wi-Fi. Turn Wi-Fi off (`nmcli radio wifi off`) while on eth2.
+- The eth2 socket is the one on USB path `usb-0:3`. See the label table in 1.5.
+
+#### Fallback: laptop as DHCP server (any port, or an HMI without the eth2 profile)
+
+A fresh stock image asks for an address by DHCP on every port. On a direct
+cable nothing answers unless the laptop does. A NetworkManager **shared**
+profile makes the laptop the DHCP server. It does **not** need internet. During
+the golden-image build (1.3) this also gives the HMI the laptop's internet.
 
 ```bash
 sudo ip addr flush dev eno1          # only if an address was added by hand earlier
@@ -277,11 +303,63 @@ network.
   Expected: `14.1s` total, `multi-user.target reached after 3.7s in userspace`
   (was 27.8 s / 23.5 s). The remaining top item, `NetworkManager-wait-online`
   (6.2 s), does not delay `multi-user.target`, and provisioning masks it.
-- **No fixed network configuration in the golden image.** All Ethernet ports
-  stay on Pi OS defaults (DHCP). The fixed `eth2` = `192.168.0.1` belongs to
-  provisioning (`stock-hmi.py`), so it is version-controlled and re-applied
-  on every provision or update. The bridged ports are configured by the HMI
-  program at runtime.
+#### Fixed address on the HPC port (eth2) ✅
+
+eth2 gets `192.168.0.1/24` in the golden image. A technician can then SSH in
+right after flashing, before provisioning. The bridged ports (eth0, eth1) stay on
+DHCP here; the HMI program configures them at runtime.
+
+There is **one definition**,
+[`BOOKWORM/network/hpc-eth2.nmconnection`](BOOKWORM/network/hpc-eth2.nmconnection).
+It is installed by hand here, and `stock-hmi.py` installs it again on every
+provision or update.
+
+Why it matches by hardware path, not by the name `eth2` or a MAC address:
+
+| Name (first build) | Hardware | `ID_PATH` | Role |
+| --- | --- | --- | --- |
+| eth0 | CM4 built-in, `bcmgenet` | `platform-fd580000.ethernet` | bridge |
+| eth1 | Realtek RTL8153 USB, `r8152` | `platform-fd500000.pcie-pci-0000:01:00.0-usb-0:2:1.0` | bridge |
+| **eth2** | Realtek RTL8153 USB, `r8152` | `platform-fd500000.pcie-pci-0000:01:00.0-usb-0:3:1.0` | **HPC controller, 192.168.0.1** |
+
+eth1 and eth2 are two USB network chips, so their names follow USB enumeration
+order and could swap between boots. MAC addresses differ per unit. The
+`ID_PATH` is the same on every HMI2220-070C.
+
+> ⏳ Record which labelled socket on the case is `usb-0:3` (eth2), for
+> technicians.
+
+Collect the table above with:
+
+```bash
+for i in /sys/class/net/eth*; do echo "== ${i##*/} mac=$(cat $i/address)"; udevadm info -q property -p $i | grep -E '^(ID_PATH|ID_NET_DRIVER|ID_BUS|ID_MODEL|ID_VENDOR)='; done
+ip -br link        # the port with a cable shows UP / LOWER_UP
+```
+
+Install it on the HMI, while still connected through the DHCP fallback:
+
+```bash
+# laptop, from the repo
+scp BOOKWORM/network/hpc-eth2.nmconnection pi@192.168.1.<x>:     # note the trailing ':'
+# HMI
+sudo install -m 600 -o root -g root ~/hpc-eth2.nmconnection /etc/NetworkManager/system-connections/
+rm ~/hpc-eth2.nmconnection
+sudo nmcli con reload
+sudo reboot
+```
+
+Reconnect on `192.168.0.1` ([normal method](#normal-method-the-hpc-port-eth2-at-19216801-)),
+then verify:
+
+| Check | Command | Expected (first build) |
+| --- | --- | --- |
+| Profile active on eth2 | `nmcli -f NAME,DEVICE con show --active` | `hpc-eth2  eth2` |
+| Address | `ip -br addr show eth2` | `eth2 UP 192.168.0.1/24 fe80::…/64` |
+| Right socket | `udevadm info -q property -p /sys/class/net/eth2 \| grep ID_PATH` | `…-usb-0:3:1.0` |
+
+If the profile is not active, check that the file is mode `600` and owned by
+root (NetworkManager ignores it otherwise), and that `ID_PATH` matches the
+`[match] path=` line.
 
 #### Cleanup
 
@@ -376,6 +454,8 @@ USB/
 │   ├── settings.txt
 │   └── release-manifest.json
 ├── debs/                 # offline .deb dependencies (iptables, libpaho-mqtt, ...)
+├── network/
+│   └── hpc-eth2.nmconnection   # eth2 = 192.168.0.1, re-applied on every run
 ├── rpiboot-msd-cm4/      # loader files from section 0
 └── hpc-golden-bookworm-6.6.31.img.xz (+ .sha256)
 ```
@@ -389,10 +469,9 @@ The golden image is Lite, so there is no desktop, no USB auto-mount and no
 double-click. The technician works over SSH:
 
 ```bash
-# laptop
-nmcli con up hmi-direct
-cat /var/lib/NetworkManager/dnsmasq-eno1.leases
-ssh pi@192.168.1.<x>
+# laptop: cable in the HMI's eth2 socket
+nmcli con up hmi-eth2               # laptop = 192.168.0.100/24
+ssh pi@192.168.0.1
 
 # on the HMI: insert the provisioning USB
 lsblk                                   # find it, e.g. sda1
@@ -409,6 +488,8 @@ What `stock-hmi.py` does:
 - copies `bin/` to `/home/nwhs/hpc-hmi/bin/`, checks it with `ldd`, and gives
   `HPC_LinuxGUI` `cap_net_admin,cap_net_raw`;
 - sets hostname `hpc`;
+- installs `network/hpc-eth2.nmconnection` (eth2 = `192.168.0.1/24`) again, so
+  the HPC port is restored even if something changed it;
 - adds the sudoers rule `nwhs` (full sudo with password, passwordless
   `nmcli`/`ip`);
 - adds a udev rule creating `/dev/input/touchscreen`;
@@ -421,18 +502,15 @@ What `stock-hmi.py` does:
 ### 2.3 Verify ⏳
 
 - After the reboot, the panel shows the HPC GUI. Touch works.
-- `ssh nwhs@<ip>` works. `pi` no longer exists (`getent passwd pi` prints nothing).
+- `ssh nwhs@192.168.0.1` works. `pi` no longer exists (`getent passwd pi`
+  prints nothing).
+- `nmcli -f NAME,DEVICE con show --active` shows `hpc-eth2  eth2`.
 - `systemctl status hmi.service` is active.
 - Check `/var/log/hpc-stock-installer.log` for errors.
 
-> TODO: `stock-hmi.py` should pin `eth2` to `192.168.0.1/24` (the link to the
-> HPC controller at `192.168.0.2`). Match the port by hardware path, not by
-> name or MAC: `net.ifnames=0` names can change order between boots, and MACs
-> differ per unit. Port and path mapping are still to be collected.
->
-> TODO: document which address a provisioned HMI uses on Ethernet. The app
-> configures networking via `nmcli`, and earlier units were reached at
-> `192.168.1.2`.
+> Open question: the HMI program changes the bridge ports' address via
+> `nmcli`. Confirm it never modifies the `hpc-eth2` profile. If it does,
+> re-provisioning restores it.
 
 ---
 
@@ -464,7 +542,7 @@ the HMI under that folder that is not on the USB is removed**. It rewrites the
 services and reboots.
 
 ```bash
-ssh nwhs@<ip>
+ssh nwhs@192.168.0.1                # laptop on eth2 as 192.168.0.100/24
 sudo mount /dev/sda1 /mnt && cd /mnt
 sudo python3 ./stock-hmi.py         # run with sudo directly: nwhs does not have
                                     # passwordless sudo, so self-elevation would fail
