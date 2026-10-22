@@ -264,12 +264,19 @@ Do **not** delete the SSH host keys unless the regeneration unit exists.
 Without keys `ssh.service` fails, and the cloned HMIs are unreachable over the
 network.
 
-#### Boot-time decisions baked into the image ⏳
+#### Boot-time decisions baked into the image ✅
 
 - **`ed-lte-daemon.service`** waits for the optional cellular modem and adds
   about 20 s to every boot (also seen on the E180, see `dev_test/readme.md`).
   Disable it in the golden image. On a unit that does use LTE, run
   `sudo systemctl enable ed-lte-daemon.service`.
+  ```bash
+  sudo systemctl disable ed-lte-daemon.service && sudo reboot
+  systemd-analyze        # after reboot
+  ```
+  Expected: `14.1s` total, `multi-user.target reached after 3.7s in userspace`
+  (was 27.8 s / 23.5 s). The remaining top item, `NetworkManager-wait-online`
+  (6.2 s), does not delay `multi-user.target`, and provisioning masks it.
 - `NetworkManager-wait-online.service` (6 s) is left alone here, because
   `stock-hmi.py` masks it during provisioning.
 
