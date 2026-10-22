@@ -1,5 +1,6 @@
 # HPC controller port: always 192.168.0.1 (the controller is 192.168.0.2).
-# Installed into the golden image and re-installed by stock-hmi.py.
+# Installed into the golden image by hand (HOWTO_golden_image.md, 1.5) and
+# re-installed by stock-hmi.py on every provision/update, from this file.
 #
 # Matched by hardware path, not by name or MAC: eth1/eth2 are two Realtek
 # r8152 USB NICs whose kernel names follow USB enumeration order, and MACs

@@ -31,6 +31,7 @@ APP_USER = "nwhs"
 # in /etc/login.defs. System accounts and nobody (65534) fall outside it.
 REGULAR_UID_RANGE = range(1000, 60000)
 HMI_HOSTNAME = "hpc"
+HPC_PORT_PROFILE = "hpc-eth2.nmconnection"
 MQTT_HOST = "127.0.0.1"
 AUTO_REBOOT = True
 RELEASE_REPOSITORY = ("https://github.com/NyleWaterHeatingSystems/hpc-releases.git")
@@ -399,6 +400,20 @@ def configure_hostname() -> None:
     hosts_path.write_text("\n".join(updated) + "\n", encoding="utf-8")
 
 
+def configure_hpc_port() -> None:
+    """Pin the HPC controller port to 192.168.0.1; see network/hpc-eth2.nmconnection."""
+    source = bundle_directory() / "network" / HPC_PORT_PROFILE
+    if not source.is_file():
+        raise RuntimeError(f"Missing network profile: {source}")
+
+    destination = Path("/etc/NetworkManager/system-connections") / HPC_PORT_PROFILE
+    shutil.copyfile(source, destination)
+    os.chown(destination, 0, 0)
+    # NetworkManager ignores keyfiles readable by other users.
+    destination.chmod(0o600)
+    run([command_path("nmcli"), "connection", "reload"])
+
+
 def configure_sudo_access() -> None:
     # Membership in sudo grants normal administrative access using the nwhs
     # password. HPC_LinuxGUI invokes nmcli without a terminal, so that one
@@ -629,6 +644,7 @@ def provision() -> None:
     ensure_user()
     install_application(source_dir, app_dir)
     configure_hostname()
+    configure_hpc_port()
     configure_sudo_access()
     configure_touchscreen_udev()
     configure_boot(app_dir)
