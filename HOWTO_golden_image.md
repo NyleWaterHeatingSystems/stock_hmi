@@ -216,22 +216,38 @@ Harmless noise in `dmesg`:
 `/usr/share/plymouth/themes/pix/`, which does not exist on Lite. Only the boot
 splash is lost.
 
-### 1.4 Verify the hardware
+### 1.4 Verify the hardware ✅
+
+Run these checks over SSH after the reboot in 1.3. Do every one before going
+on. A unit that fails one will fail in the field too. Results from the first
+build are in the "Expected" column.
+
+| # | Check | Command | Expected (pass) | If it fails |
+| --- | --- | --- | --- | --- |
+| 1 | Panel shows a console | look at the screen | Boot messages, then a `login:` prompt within ~30 s | Run checks 2–4 to find out why |
+| 2 | EDATEC kernel is running | `uname -r` | `6.6.31-rpi-v8` | `6.12.x+rpt-rpi-v8` means the kernel switch did not happen; see the 1.3 fix |
+| 3 | Display driver created a framebuffer | `cat /proc/fb` | `0 vc4drmfb` | Empty: no panel driver. Check 2, and confirm `config.txt` has `dtoverlay=vc4-kms-dsi-edatec-panel-rpi4,...` |
+| 4 | Display outputs | `for c in /sys/class/drm/card*-*; do echo "$c: $(cat $c/status)"; done` | A DSI connector is listed in addition to HDMI-A-1/2 | Only HDMI and Writeback listed: same cause as 3 |
+| 5 | Touch controller detected | `grep -E '^(N\|H):' /proc/bus/input/devices` | `N: Name="10-0014 Goodix Capacitive TouchScreen"` with `H: Handlers=... event5` (the event number may differ) | No Goodix entry: check `sudo dmesg \| grep -i goodix`; the EDATEC packages/overlays may be missing |
+| 6 | Touches register | `sudo apt install -y evtest` then `sudo evtest /dev/input/event5`; tap and drag, Ctrl+C to stop | Lines with `ABS_MT_POSITION_X`, `ABS_MT_POSITION_Y` and `BTN_TOUCH` scroll by while touching, nothing when idle | No events: wrong `eventN`, or a cable or controller fault |
+| 7 | EDATEC factory test is off | `systemctl is-enabled touch-test.service; systemctl is-active touch-test.service` | `disabled` / `inactive` | `sudo systemctl disable --now touch-test.service`; it would compete with `HPC_LinuxGUI` for the screen |
+
+If you have no internet for `evtest`, this works for check 6. It prints raw
+bytes while you touch, and nothing otherwise:
 
 ```bash
-uname -r                 # 6.6.31-rpi-v8
-cat /proc/fb             # lists a framebuffer
+sudo timeout 10 cat /dev/input/event5 | xxd | head
 ```
 
-- ✅ The 7" panel shows the boot console and a login prompt.
-- ✅ `uname -r` → `6.6.31-rpi-v8`; `/proc/fb` → `0 vc4drmfb`.
-- ✅ The touch controller is detected: `10-0014 Goodix Capacitive TouchScreen` →
-  `/dev/input/event5` (`grep -E '^(N|H):' /proc/bus/input/devices`).
-- ⏳ Touches register: `sudo apt install -y evtest && sudo evtest /dev/input/event5`,
-  then tap and drag. Expect `ABS_MT_POSITION_X/Y` and `BTN_TOUCH`.
-- ✅ EDATEC's factory test `touch-test.service` (`/opt/ed-touchscreen-test/ed-touch-test`)
-  is installed **disabled**. Leave it that way so it cannot compete with
-  `HPC_LinuxGUI` for the screen.
+Harmless output you can ignore:
+- `imx219` errors in `dmesg`;
+- Bluetooth timeouts;
+- `mmc1: Failed to initialize a non-removable card`;
+- "terminal is not fully functional" from `systemctl`. That is your SSH
+  client's `TERM`; fix it with `export TERM=xterm-256color` or use `--no-pager`.
+
+`/opt/ed-touchscreen-test/ed-touch-test` is EDATEC's factory test program, run
+by `touch-test.service`. The package has no command-line tool for us.
 
 ### 1.5 Prepare the image for cloning ⏳
 
