@@ -1,0 +1,30 @@
+# HPC controller port: always 192.168.0.1 (the controller is 192.168.0.2).
+# Installed into the golden image and re-installed by stock-hmi.py.
+#
+# Matched by hardware path, not by name or MAC: eth1/eth2 are two Realtek
+# r8152 USB NICs whose kernel names follow USB enumeration order, and MACs
+# differ per unit. usb-0:3 is the socket that enumerated as eth2 on the
+# first build (usb-0:2 was eth1; the CM4's own bcmgenet port is eth0).
+#
+# Install as /etc/NetworkManager/system-connections/hpc-eth2.nmconnection,
+# owned by root, mode 0600.
+
+[connection]
+id=hpc-eth2
+uuid=89da5a8e-0778-4921-bd60-229b95cfc7ad
+type=ethernet
+autoconnect=true
+autoconnect-priority=100
+
+[match]
+path=platform-fd500000.pcie-pci-0000:01:00.0-usb-0:3:1.0
+
+[ethernet]
+
+[ipv4]
+method=manual
+address1=192.168.0.1/24
+never-default=true
+
+[ipv6]
+method=link-local
