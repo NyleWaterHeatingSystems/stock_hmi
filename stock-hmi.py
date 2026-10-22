@@ -20,14 +20,16 @@ import traceback
 """
 This script assumes a stock OS is pre provissioned with:
 Bookworm, Debain 12, and drivers provided
-user: pi
-pass: raspberry
-upon completion, pi user will not exist, replaced by nwhs
+a login user (any name) with passwordless sudo, e.g. the stock pi user
+or the user created by Raspberry Pi Imager
+upon completion, every regular login user other than nwhs is removed
 The HPC_LinuxGUI is set to run with sudo permissions via setcap
 """
 
 APP_USER = "nwhs"
-LEGACY_LOGIN_USERS = ("pi",)
+# Debian's range for regular (human) login accounts; see UID_MIN/UID_MAX
+# in /etc/login.defs. System accounts and nobody (65534) fall outside it.
+REGULAR_UID_RANGE = range(1000, 60000)
 HMI_HOSTNAME = "hpc"
 MQTT_HOST = "127.0.0.1"
 AUTO_REBOOT = True
@@ -426,18 +428,22 @@ def configure_touchscreen_udev() -> None:
     run(["udevadm", "control", "--reload-rules"])
     run(["udevadm", "trigger", "--subsystem-match=input"])
 
+def detect_legacy_users() -> list[str]:
+    """Every regular login account other than APP_USER (stock, Imager-made, or ad hoc)."""
+    return sorted(
+        user.pw_name
+        for user in pwd.getpwall()
+        if user.pw_uid in REGULAR_UID_RANGE and user.pw_name != APP_USER
+    )
+
+
 def configure_legacy_user_cleanup() -> None:
     """Lock old login users now and remove them safely during the reboot."""
-    legacy_users = []
-    for user_name in LEGACY_LOGIN_USERS:
-        if user_name == APP_USER:
-            continue
-        try:
-            pwd.getpwnam(user_name)
-        except KeyError:
-            continue
-        legacy_users.append(user_name)
+    legacy_users = detect_legacy_users()
+    for user_name in legacy_users:
         run(["usermod", "--lock", user_name])
+    if legacy_users:
+        logging.info("Legacy users to remove on reboot: %s", ", ".join(legacy_users))
 
     cleanup_script = Path("/usr/local/sbin/hpc-remove-legacy-users")
     cleanup_unit = Path("/etc/systemd/system/hpc-remove-legacy-users.service")
@@ -469,6 +475,13 @@ while IFS= read -r user_name; do
         pkill -KILL -u "$user_name" >/dev/null 2>&1 || true
         userdel --remove "$user_name"
     fi
+    # userdel leaves sudo rules behind, e.g. Raspberry Pi OS's 010_pi-nopasswd
+    for rule in /etc/sudoers.d/*; do
+        [ -f "$rule" ] || continue
+        if awk -v u="$user_name" '$1 == u { found = 1 } END { exit !found }' "$rule"; then
+            rm -f "$rule"
+        fi
+    done
 done < /var/lib/hpc-hmi/remove-legacy-users
 
 rm -f /var/lib/hpc-hmi/remove-legacy-users
