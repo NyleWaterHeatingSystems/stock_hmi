@@ -48,7 +48,6 @@ APP_PASSWORD_HASH = (
 PACKAGES = (
     "iptables",
     "libpaho-mqtt1.3",
-    "libx11-dev",
     "network-manager",
     "openssh-server",
 )

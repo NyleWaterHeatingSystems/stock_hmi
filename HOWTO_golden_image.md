@@ -571,7 +571,7 @@ kits from a clean, committed checkout. The kit:
 USB/
 ├── stock-hmi.py
 ├── bin/          # HPC_LinuxGUI, assets/, release-manifest.json
-├── debs/         # offline .deb dependencies (iptables, libpaho-mqtt, ...)
+├── debs/         # offline .deb dependencies (iptables, libip6tc2, libpaho-mqtt)
 ├── network/      # eth2-hpc.nmconnection: eth2 = 192.168.0.4, re-applied on every run
 ├── KIT.txt       # the versions above
 └── SHA256SUMS    # one line per file (331 for v2.0.8)
