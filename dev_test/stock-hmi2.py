@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Zero-input provisioning for an EDATEC stock OS running HPC_LinuxGUI."""
+"""Experimental copy of stock-hmi.py with a --patch mode (see dev_test/readme.md).
+
+Not maintained: it predates the golden image and make-usb-kit.py, still has the
+old --update mode, and has drifted from ../stock-hmi.py. Use ../stock-hmi.py for
+provisioning; port --patch into it if that mode is still wanted.
+"""
 
 from __future__ import annotations
 import argparse

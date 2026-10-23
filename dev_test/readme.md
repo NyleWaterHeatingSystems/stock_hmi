@@ -1,3 +1,8 @@
+> **Note (2026-10-23):** `stock-hmi2.py` is an unmaintained experiment. It
+> predates the golden image and `make-usb-kit.py` and has drifted from
+> `../stock-hmi.py`. Use `../stock-hmi.py`; port `--patch` into it if that mode
+> is still wanted.
+
 # expiramental:
 
 - Update a previously provissioned software with --patch option  
