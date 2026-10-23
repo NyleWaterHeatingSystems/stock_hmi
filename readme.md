@@ -1,8 +1,9 @@
 # Stock HMI Provisioner for the EDATEC ED-HMI2220-070C
 
 Provisions an EDATEC ED-HMI2220-070C, flashed with the golden image, as an HPC
-HMI. Fully offline: the technician needs a laptop, an Ethernet cable and the
-provisioning USB. Step-by-step instructions, with expected output for every
+HMI. Only maintainers provision HMIs; technicians only update provisioned ones.
+Both work fully offline with a laptop, an Ethernet cable and the provisioning
+USB. Step-by-step instructions, with expected output for every
 check, are in [HOWTO_golden_image.md](HOWTO_golden_image.md).
 
 ## Current state (2026-10-23)

@@ -19,8 +19,11 @@ and has its own version:
 | **App** | `HPC_LinuxGUI` and its assets, built from `HPC_Firmware`. | The `hpc-releases` repo | Often |
 
 `make-usb-kit.py` combines the setup payload with one app release into a
-**provisioning USB**. A technician flashes the golden image, then runs the
+**provisioning USB**. A maintainer flashes the golden image, then runs the
 provisioner from that USB. Neither step needs internet.
+
+**Only maintainers create golden images and provision HMIs.** Technicians only
+update HMIs that have already been provisioned (section 3.2).
 
 The golden image is also the developers' clean starting point. Re-flash it to
 get a unit back to a known state before trying a new setup script or
@@ -32,8 +35,9 @@ configuration.
 | --- | --- | --- |
 | [0. Background and laptop setup](#0-background-and-laptop-setup) | Anyone, once per laptop | Internet to install tools |
 | [1. Creating the golden image](#1-creating-the-golden-image) | Maintainer, at the shop | Internet needed once (EDATEC drivers) |
-| [2. Provisioning an HMI](#2-provisioning-an-hmi-from-the-golden-image) | Technician, in the field | **Offline**: laptop, Ethernet cable and USB |
-| [3. Updating the HMI software](#3-updating-the-hmi-software) | Maintainer, then technician | Internet for the maintainer only |
+| [1.7 Flashing the golden image](#17-flash-the-golden-image-onto-an-hmi) | Maintainer | **Offline**: laptop, USB cable and the image |
+| [2. Provisioning an HMI](#2-provisioning-an-hmi-from-the-golden-image) | Maintainer | **Offline**: laptop, Ethernet cable and USB |
+| [3. Updating the HMI software](#3-updating-the-hmi-software) | Maintainer builds the USB; technician applies it in the field | Internet for the maintainer only |
 
 Steps that have not yet been run on real hardware are marked **TODO**. The full
 list of open items is in [Open items](#open-items) at the end.
@@ -88,7 +92,8 @@ ls -la
 **Check:** `bootcode4.bin` must be 106008 bytes. If it is 16 bytes, you
 downloaded the symlink instead of the file; repeat the last `curl`.
 
-Technicians have no internet, so copy this folder onto their USB as well.
+Keep a copy of this folder with the golden image, so an HMI can be flashed
+without internet.
 
 ### Connect the laptop to the HMI with a cable
 
@@ -398,8 +403,8 @@ On a unit that does use LTE, turn it back on with
 
 #### Fixed address on the HPC port (eth2)
 
-This gives eth2 the address `192.168.0.4/24`, so a technician can SSH in right
-after flashing, before provisioning. The other two ports (eth0 and eth1) stay
+This gives eth2 the address `192.168.0.4/24`, so you can SSH in right after
+flashing, before provisioning. The other two ports (eth0 and eth1) stay
 on DHCP here; the HMI program sets them up when it runs.
 
 The address is defined in one file,
@@ -608,8 +613,8 @@ file, and a rule that files are never replaced, only added.
 
 ### 1.7 Flash the golden image onto an HMI
 
-A technician can do this offline. You need the `.img.xz`, its `.sha256` file and
-the `rpiboot-msd-cm4/` loader folder.
+A maintainer does this. It works offline: you need the `.img.xz`, its
+`.sha256` file and the `rpiboot-msd-cm4/` loader folder.
 
 1. Check that the image file is complete and unchanged:
    ```bash
@@ -664,8 +669,8 @@ the `rpiboot-msd-cm4/` loader folder.
 
 Provisioning turns a freshly flashed golden image into a working HPC HMI. It
 installs the app, creates the `nwhs` user, configures the network and startup
-services, and removes the `pi` user. It works offline: the technician needs a
-laptop, an Ethernet cable and the provisioning USB.
+services, and removes the `pi` user. Only a maintainer provisions an HMI. It
+works offline: you need a laptop, an Ethernet cable and the provisioning USB.
 
 ### 2.1 Build the provisioning USB
 
@@ -713,8 +718,8 @@ USB/
 
 There's no `settings.txt` in the kit. The app creates its own on first start.
 
-If the technician will also flash the HMI, copy the golden image, its `.sha256`
-file and the `rpiboot-msd-cm4/` folder onto the stick by hand.
+To flash the HMI from the same stick, copy the golden image, its `.sha256`
+file and the `rpiboot-msd-cm4/` folder onto it by hand.
 
 ### 2.2 Run the provisioner
 
