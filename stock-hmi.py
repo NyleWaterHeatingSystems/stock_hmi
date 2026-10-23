@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zero-input provisioning for an EDATEC stock OS running HPC_LinuxGUI."""
+"""Provision an ED-HMI2220-070C flashed with the golden image as an HPC HMI."""
 
 from __future__ import annotations
 import argparse
@@ -15,12 +15,12 @@ import sys
 import time
 import traceback
 """
-This script assumes a stock OS is pre provissioned with:
-Bookworm, Debain 12, and drivers provided
-a login user (any name) with passwordless sudo, e.g. the stock pi user
-or the user created by Raspberry Pi Imager
-upon completion, every regular login user other than nwhs is removed
-The HPC_LinuxGUI is set to run with sudo permissions via setcap
+Runs on the HMI as root, from a kit built by make-usb-kit.py (bin/, debs/ and
+network/ next to this script). It assumes the golden image (see
+HOWTO_golden_image.md): Bookworm (Debian 12) Lite with EDATEC's kernel and
+drivers, and a login user with passwordless sudo (pi on the golden image).
+Upon completion, every regular login user other than nwhs is removed, and
+HPC_LinuxGUI is given its network capabilities via setcap.
 """
 
 APP_USER = "nwhs"
@@ -42,13 +42,6 @@ APP_PASSWORD_HASH = (
     "Iw1xKqS37Wg/wlI82ouLy0"
 )
 
-# I should re-think this, as an offline installer
-PACKAGES = (
-    "iptables",
-    "libpaho-mqtt1.3",
-    "network-manager",
-    "openssh-server",
-)
 
 LOG_FILE = Path("/var/log/hpc-stock-installer.log")
 
