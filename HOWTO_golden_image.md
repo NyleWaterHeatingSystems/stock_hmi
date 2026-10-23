@@ -590,7 +590,8 @@ double-click. The technician works over SSH:
 nmcli con up hmi-eth2               # laptop = 192.168.0.100/24
 ssh pi@192.168.0.4
 
-# on the HMI: the provisioner needs these; any MISSING stops it partway (⏳ not yet run)
+# on the HMI: the provisioner needs these; any MISSING stops it partway.
+# On the 2026-10-22 golden image every one is present (/usr/bin/rsync, /usr/sbin/setcap, ...).
 for c in rsync setcap ldd visudo nmcli udevadm hostnamectl python3; do printf '%-12s %s\n' $c "$(command -v $c || echo MISSING)"; done
 
 # on the HMI: insert the provisioning USB
