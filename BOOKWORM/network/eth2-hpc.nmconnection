@@ -1,0 +1,39 @@
+# HPC controller port (eth2): always 192.168.0.4 (the controller is 192.168.0.2).
+# Installed into the golden image by hand (HOWTO_golden_image.md, 1.5) and
+# re-installed by stock-hmi.py on every provision/update, from this file.
+#
+# Named eth2-hpc on purpose: HPC_LinuxGUI deletes and recreates a profile of
+# this name (same address) every time it starts (HPC_Firmware
+# LinuxHMI/HPC_LinuxGUI/src/system/network_config_nmcli.cpp). Sharing the name
+# means the app replaces this profile instead of competing with it, so eth2 has
+# one address whether or not the app has run. Keep the address in step with
+# that file.
+#
+# Matched by hardware path, not by name or MAC: eth1/eth2 are two Realtek
+# r8152 USB NICs whose kernel names follow USB enumeration order, and MACs
+# differ per unit. usb-0:3 is the socket that enumerated as eth2 on the
+# first build (usb-0:2 was eth1; the CM4's own bcmgenet port is eth0).
+# (The app's own profile matches by ifname=eth2 instead.)
+#
+# Install as /etc/NetworkManager/system-connections/eth2-hpc.nmconnection,
+# owned by root, mode 0600.
+
+[connection]
+id=eth2-hpc
+uuid=89da5a8e-0778-4921-bd60-229b95cfc7ad
+type=ethernet
+autoconnect=true
+autoconnect-priority=100
+
+[match]
+path=platform-fd500000.pcie-pci-0000:01:00.0-usb-0:3:1.0
+
+[ethernet]
+
+[ipv4]
+method=manual
+address1=192.168.0.4/24
+never-default=true
+
+[ipv6]
+method=link-local

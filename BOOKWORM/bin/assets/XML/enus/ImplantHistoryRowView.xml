@@ -1,7 +1,0 @@
-    <object className="UIVIEW" frame="0,0, 760, 70" backgroundColor="WHITE">
-      <object  runtimeID="31001" className="UILABELVIEW" frame="0,2, 186, 66" backgroundColor="GRAY" text="" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
-      <object  runtimeID="31002" className="UILABELVIEW" frame="190,2, 186, 66" backgroundColor="GRAY" text="" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
-      <object  runtimeID="31003" className="UILABELVIEW" frame="380,2, 186, 66" backgroundColor="GRAY" text="" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
-      <object  runtimeID="31004" className="UILABELVIEW" frame="570,2, 186, 66" backgroundColor="GRAY" text="" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
-    </object>
-

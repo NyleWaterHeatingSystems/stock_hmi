@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Zero-input provisioning for an EDATEC stock OS running HPC_LinuxGUI."""
+"""Experimental copy of stock-hmi.py with a --patch mode (see dev_test/readme.md).
+
+Not maintained: it predates the golden image and make-usb-kit.py, still has the
+old --update mode, and has drifted from ../stock-hmi.py. Use ../stock-hmi.py for
+provisioning; port --patch into it if that mode is still wanted.
+"""
 
 from __future__ import annotations
 import argparse
@@ -48,7 +53,6 @@ APP_PASSWORD_HASH = (
 PACKAGES = (
     "iptables",
     "libpaho-mqtt1.3",
-    "libx11-dev",
     "network-manager",
     "openssh-server",
 )
@@ -76,6 +80,25 @@ def calculate_sha256(filename):
     return digest.hexdigest()
 
 
+RELEASE_NAME_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(-RC\d+)?$")
+
+
+def current_release_directory(repository_directory: Path) -> Path:
+    """Resolve hpc-releases/CURRENT (a one-line release name) to versions/<name>/."""
+    current_file = repository_directory / "CURRENT"
+    if not current_file.is_file():
+        raise RuntimeError(f"Release repository has no CURRENT file: {current_file}")
+
+    release_name = current_file.read_text(encoding="utf-8").strip()
+    if not RELEASE_NAME_PATTERN.match(release_name):
+        raise RuntimeError(f"Invalid release name in CURRENT: {release_name!r}")
+
+    release_directory = repository_directory / "versions" / release_name
+    if not release_directory.is_dir():
+        raise RuntimeError(f"CURRENT names a missing release: {release_directory}")
+    return release_directory
+
+
 def update_installer_payload():
     """
     Download the latest HMI release and update this installer's bin/ payload.
@@ -85,13 +108,9 @@ def update_installer_payload():
     """
     installer_directory = application_directory()
     bin_directory = installer_directory / "bin"
-    settings_file = bin_directory / "settings.txt"
 
     if not bin_directory.is_dir():
         raise RuntimeError(f"Missing installer payload directory: {bin_directory}")
-
-    if not settings_file.is_file():
-        raise RuntimeError(f"Missing settings file: {settings_file}")
 
     with tempfile.TemporaryDirectory(prefix="hpc-release-") as temp_name:
         temp_directory = Path(temp_name)
@@ -114,8 +133,8 @@ def update_installer_payload():
             check=True,
         )
 
-        latest_directory = (repository_directory / "LATEST").resolve()
-        manifest_file = latest_directory / "manifest.json"
+        release_directory = current_release_directory(repository_directory)
+        manifest_file = release_directory / "manifest.json"
 
         if not manifest_file.is_file():
             raise RuntimeError(
@@ -135,14 +154,14 @@ def update_installer_payload():
                 "The release manifest does not contain a valid HMI component"
             ) from error
 
-        # Prevent a manifest filename from escaping LATEST/.
+        # Prevent a manifest filename from escaping the release directory.
         if Path(release_filename).name != release_filename:
             raise RuntimeError(
                 f"Invalid HMI filename in manifest: {release_filename}"
             )
 
-        release_binary = latest_directory / release_filename
-        release_assets = latest_directory / "assets"
+        release_binary = release_directory / release_filename
+        release_assets = release_directory / "assets"
 
         if not release_binary.is_file():
             raise RuntimeError(
@@ -169,7 +188,7 @@ def update_installer_payload():
         if staged_bin.exists():
             shutil.rmtree(staged_bin)
 
-        # Preserve settings.txt and any other installer-specific bin files.
+        # Preserve any installer-specific bin files.
         shutil.copytree(bin_directory, staged_bin)
 
         staged_assets = staged_bin / "assets"
@@ -351,6 +370,9 @@ def install_application(source_dir: Path, app_dir: Path) -> None:
                 command_path("rsync"),
                 "-a",
                 "--delete",
+                # The app creates settings.txt in its working directory (bin/);
+                # it is this unit's configuration, so never replace or delete it.
+                "--exclude=/settings.txt",
                 f"--chown={APP_USER}:{APP_USER}",
                 f"{source_dir}/",
                 f"{app_dir}/",
@@ -732,7 +754,7 @@ def main() -> int:
         action="store_true",
         help=(
             "refresh bin/ from the release selected by "
-            "hpc-releases/LATEST, then exit"
+            "hpc-releases/CURRENT, then exit"
         ),
     )
 

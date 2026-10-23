@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Zero-input provisioning for an EDATEC stock OS running HPC_LinuxGUI."""
+"""Provision an ED-HMI2220-070C flashed with the golden image as an HPC HMI."""
 
 from __future__ import annotations
 import argparse
-import hashlib
 import grp
 import json
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import pwd
 import re
@@ -15,23 +15,24 @@ import shutil
 import subprocess
 import sys
 import time
-import tempfile 
 import traceback
 """
-This script assumes a stock OS is pre provissioned with:
-Bookworm, Debain 12, and drivers provided
-user: pi
-pass: raspberry
-upon completion, pi user will not exist, replaced by nwhs
-The HPC_LinuxGUI is set to run with sudo permissions via setcap
+Runs on the HMI as root, from a kit built by make-usb-kit.py (bin/, debs/ and
+network/ next to this script). It assumes the golden image (see
+HOWTO_golden_image.md): Bookworm (Debian 12) Lite with EDATEC's kernel and
+drivers, and a login user with passwordless sudo (pi on the golden image).
+Upon completion, every regular login user other than nwhs is removed, and
+HPC_LinuxGUI is given its network capabilities via setcap.
 """
 
 APP_USER = "nwhs"
-LEGACY_LOGIN_USERS = ("pi",)
+# Debian's range for regular (human) login accounts; see UID_MIN/UID_MAX
+# in /etc/login.defs. System accounts and nobody (65534) fall outside it.
+REGULAR_UID_RANGE = range(1000, 60000)
 HMI_HOSTNAME = "hpc"
+HPC_PORT_PROFILE = "eth2-hpc.nmconnection"
 MQTT_HOST = "127.0.0.1"
 AUTO_REBOOT = True
-RELEASE_REPOSITORY = ("https://github.com/NyleWaterHeatingSystems/hpc-releases.git")
 
 
 # Salted SHA-512 crypt hash for the standard deployment password. The literal
@@ -43,169 +44,11 @@ APP_PASSWORD_HASH = (
     "Iw1xKqS37Wg/wlI82ouLy0"
 )
 
-# I should re-think this, as an offline installer
-PACKAGES = (
-    "iptables",
-    "libpaho-mqtt1.3",
-    "libx11-dev",
-    "network-manager",
-    "openssh-server",
-)
 
 LOG_FILE = Path("/var/log/hpc-stock-installer.log")
-
-def application_directory():
-    """
-    Directory containing stock-hmi.py, or the compiled stock-hmi executable.
-    The external bin/ and debs/ directories live here.
-    """
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
-
-    return Path(__file__).resolve().parent
-
-
-def calculate_sha256(filename):
-    digest = hashlib.sha256()
-
-    with filename.open("rb") as source:
-        for block in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(block)
-
-    return digest.hexdigest()
-
-
-def update_installer_payload():
-    """
-    Download the latest HMI release and update this installer's bin/ payload.
-
-    This modifies the installer package on the maintainer's computer.
-    It does not update an already-provisioned HMI.
-    """
-    installer_directory = application_directory()
-    bin_directory = installer_directory / "bin"
-    settings_file = bin_directory / "settings.txt"
-
-    if not bin_directory.is_dir():
-        raise RuntimeError(f"Missing installer payload directory: {bin_directory}")
-
-    if not settings_file.is_file():
-        raise RuntimeError(f"Missing settings file: {settings_file}")
-
-    with tempfile.TemporaryDirectory(prefix="hpc-release-") as temp_name:
-        temp_directory = Path(temp_name)
-        repository_directory = temp_directory / "hpc-releases"
-
-        print("Downloading latest HPC release")
-
-        subprocess.run(
-            [
-                "git",
-                "clone",
-                "--depth",
-                "1",
-                "--branch",
-                "main",
-                "--no-tags",
-                RELEASE_REPOSITORY,
-                str(repository_directory),
-            ],
-            check=True,
-        )
-
-        latest_directory = (repository_directory / "LATEST").resolve()
-        manifest_file = latest_directory / "manifest.json"
-
-        if not manifest_file.is_file():
-            raise RuntimeError(
-                f"Release does not contain a manifest: {manifest_file}"
-            )
-
-        with manifest_file.open("r", encoding="utf-8") as source:
-            manifest = json.load(source)
-
-        try:
-            release_version = manifest["release_version"]
-            hmi_component = manifest["components"]["hmi"]
-            release_filename = hmi_component["file"]
-            expected_sha256 = hmi_component["sha256"].lower()
-        except (KeyError, TypeError) as error:
-            raise RuntimeError(
-                "The release manifest does not contain a valid HMI component"
-            ) from error
-
-        # Prevent a manifest filename from escaping LATEST/.
-        if Path(release_filename).name != release_filename:
-            raise RuntimeError(
-                f"Invalid HMI filename in manifest: {release_filename}"
-            )
-
-        release_binary = latest_directory / release_filename
-        release_assets = latest_directory / "assets"
-
-        if not release_binary.is_file():
-            raise RuntimeError(
-                f"HMI release binary does not exist: {release_binary}"
-            )
-
-        if not release_assets.is_dir():
-            raise RuntimeError(
-                f"HMI release assets do not exist: {release_assets}"
-            )
-
-        actual_sha256 = calculate_sha256(release_binary)
-
-        if actual_sha256.lower() != expected_sha256:
-            raise RuntimeError(
-                "HMI binary SHA-256 verification failed:\n"
-                f"  Expected: {expected_sha256}\n"
-                f"  Actual:   {actual_sha256}"
-            )
-
-        # Assemble the complete replacement before touching bin/.
-        staged_bin = installer_directory / ".bin-update"
-
-        if staged_bin.exists():
-            shutil.rmtree(staged_bin)
-
-        # Preserve settings.txt and any other installer-specific bin files.
-        shutil.copytree(bin_directory, staged_bin)
-
-        staged_assets = staged_bin / "assets"
-
-        if staged_assets.exists():
-            shutil.rmtree(staged_assets)
-
-        shutil.copytree(release_assets, staged_assets)
-
-        installed_binary = staged_bin / "HPC_LinuxGUI"
-        shutil.copy2(release_binary, installed_binary)
-        installed_binary.chmod(0o755)
-
-        # Record exactly which upstream release supplied this payload.
-        shutil.copy2(
-            manifest_file,
-            staged_bin / "release-manifest.json",
-        )
-
-        previous_bin = installer_directory / ".bin-previous"
-
-        if previous_bin.exists():
-            shutil.rmtree(previous_bin)
-
-        os.replace(bin_directory, previous_bin)
-
-        try:
-            os.replace(staged_bin, bin_directory)
-        except Exception:
-            os.replace(previous_bin, bin_directory)
-            raise
-        else:
-            shutil.rmtree(previous_bin)
-
-        print(f"Installer payload updated to {release_version}")
-        print(f"HMI source file: {release_filename}")
-        print(f"Installed as: {bin_directory / 'HPC_LinuxGUI'}")
+# os-release style KEY=value record of what is installed: the golden image
+# writes HPC_GOLDEN, provisioning writes HPC_SETUP*, the app install HPC_APP*.
+RELEASE_INFO_FILE = Path("/etc/hpc-release")
 
 def frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
@@ -350,6 +193,9 @@ def install_application(source_dir: Path, app_dir: Path) -> None:
                 command_path("rsync"),
                 "-a",
                 "--delete",
+                # The app creates settings.txt in its working directory (bin/);
+                # it is this unit's configuration, so never replace or delete it.
+                "--exclude=/settings.txt",
                 f"--chown={APP_USER}:{APP_USER}",
                 f"{source_dir}/",
                 f"{app_dir}/",
@@ -397,6 +243,20 @@ def configure_hostname() -> None:
     hosts_path.write_text("\n".join(updated) + "\n", encoding="utf-8")
 
 
+def configure_hpc_port() -> None:
+    """Pin the HPC controller port to 192.168.0.4; see network/eth2-hpc.nmconnection."""
+    source = bundle_directory() / "network" / HPC_PORT_PROFILE
+    if not source.is_file():
+        raise RuntimeError(f"Missing network profile: {source}")
+
+    destination = Path("/etc/NetworkManager/system-connections") / HPC_PORT_PROFILE
+    shutil.copyfile(source, destination)
+    os.chown(destination, 0, 0)
+    # NetworkManager ignores keyfiles readable by other users.
+    destination.chmod(0o600)
+    run([command_path("nmcli"), "connection", "reload"])
+
+
 def configure_sudo_access() -> None:
     # Membership in sudo grants normal administrative access using the nwhs
     # password. HPC_LinuxGUI invokes nmcli without a terminal, so that one
@@ -426,18 +286,22 @@ def configure_touchscreen_udev() -> None:
     run(["udevadm", "control", "--reload-rules"])
     run(["udevadm", "trigger", "--subsystem-match=input"])
 
+def detect_legacy_users() -> list[str]:
+    """Every regular login account other than APP_USER (stock, Imager-made, or ad hoc)."""
+    return sorted(
+        user.pw_name
+        for user in pwd.getpwall()
+        if user.pw_uid in REGULAR_UID_RANGE and user.pw_name != APP_USER
+    )
+
+
 def configure_legacy_user_cleanup() -> None:
     """Lock old login users now and remove them safely during the reboot."""
-    legacy_users = []
-    for user_name in LEGACY_LOGIN_USERS:
-        if user_name == APP_USER:
-            continue
-        try:
-            pwd.getpwnam(user_name)
-        except KeyError:
-            continue
-        legacy_users.append(user_name)
+    legacy_users = detect_legacy_users()
+    for user_name in legacy_users:
         run(["usermod", "--lock", user_name])
+    if legacy_users:
+        logging.info("Legacy users to remove on reboot: %s", ", ".join(legacy_users))
 
     cleanup_script = Path("/usr/local/sbin/hpc-remove-legacy-users")
     cleanup_unit = Path("/etc/systemd/system/hpc-remove-legacy-users.service")
@@ -469,6 +333,13 @@ while IFS= read -r user_name; do
         pkill -KILL -u "$user_name" >/dev/null 2>&1 || true
         userdel --remove "$user_name"
     fi
+    # userdel leaves sudo rules behind, e.g. Raspberry Pi OS's 010_pi-nopasswd
+    for rule in /etc/sudoers.d/*; do
+        [ -f "$rule" ] || continue
+        if awk -v u="$user_name" '$1 == u { found = 1 } END { exit !found }' "$rule"; then
+            rm -f "$rule"
+        fi
+    done
 done < /var/lib/hpc-hmi/remove-legacy-users
 
 rm -f /var/lib/hpc-hmi/remove-legacy-users
@@ -587,6 +458,68 @@ ExecStart=-{agetty} --autologin {APP_USER} --noclear %I $TERM
     run(["systemctl", "disable", "display-manager.service"], check=False)
 
 
+def utc_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def update_release_info(values: dict[str, str]) -> None:
+    """Set these keys in /etc/hpc-release, keeping every other line."""
+    # Values must be shell-sourceable without quotes.
+    values = {key: re.sub(r"[^A-Za-z0-9._:+-]", "_", value) for key, value in values.items()}
+    lines = []
+    if RELEASE_INFO_FILE.is_file():
+        lines = RELEASE_INFO_FILE.read_text(encoding="utf-8").splitlines()
+
+    remaining = dict(values)
+    updated = []
+    for line in lines:
+        key = line.split("=", 1)[0].strip()
+        if key in remaining:
+            updated.append(f"{key}={remaining.pop(key)}")
+        else:
+            updated.append(line)
+    updated.extend(f"{key}={value}" for key, value in remaining.items())
+
+    temporary = RELEASE_INFO_FILE.with_name(f".{RELEASE_INFO_FILE.name}.tmp")
+    temporary.write_text("\n".join(updated) + "\n", encoding="utf-8")
+    temporary.chmod(0o644)
+    os.replace(temporary, RELEASE_INFO_FILE)
+    logging.info("Recorded in %s: %s", RELEASE_INFO_FILE, ", ".join(f"{k}={v}" for k, v in values.items()))
+
+
+def read_setup_version() -> str:
+    """The kit's VERSION file as "setup-vX.Y.Z", or "unknown" for an older kit."""
+    version_file = bundle_directory() / "VERSION"
+    if version_file.is_file():
+        for line in version_file.read_text(encoding="utf-8").splitlines():
+            if re.fullmatch(r"\d+\.\d+\.\d+", line.strip()):
+                return f"setup-v{line.strip()}"
+    return "unknown"
+
+
+def record_app_release(app_dir: Path) -> None:
+    """Record the installed app's version and source commit from its release manifest."""
+    manifest_file = app_dir / "release-manifest.json"
+    try:
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        manifest = {}
+    update_release_info({
+        "HPC_APP": str(manifest.get("release_version") or "unknown"),
+        "HPC_APP_COMMIT": str(manifest.get("source_commit") or "unknown"),
+        "HPC_APP_DATE": utc_timestamp(),
+    })
+
+
+def record_setup_release() -> None:
+    values = {"HPC_SETUP": read_setup_version(), "HPC_SETUP_DATE": utc_timestamp()}
+    # Golden images from before /etc/hpc-release existed (2026-10-22) have no HPC_GOLDEN.
+    existing = RELEASE_INFO_FILE.read_text(encoding="utf-8") if RELEASE_INFO_FILE.is_file() else ""
+    if not re.search(r"^HPC_GOLDEN=", existing, re.MULTILINE):
+        values["HPC_GOLDEN"] = "unknown"
+    update_release_info(values)
+
+
 def provision() -> None:
     source_dir = bundle_directory() / "bin"
     app_dir = Path(f"/home/{APP_USER}/hpc-hmi/bin")
@@ -615,11 +548,14 @@ def provision() -> None:
 
     ensure_user()
     install_application(source_dir, app_dir)
+    record_app_release(app_dir)
     configure_hostname()
+    configure_hpc_port()
     configure_sudo_access()
     configure_touchscreen_udev()
     configure_boot(app_dir)
     configure_legacy_user_cleanup()
+    record_setup_release()
 
     marker_dir = Path("/var/lib/hpc-hmi")
     marker_dir.mkdir(parents=True, exist_ok=True)
@@ -641,15 +577,6 @@ def main() -> int:
         description="Provision a stock EDATEC HMI"
     )
 
-    parser.add_argument(
-        "--update",
-        action="store_true",
-        help=(
-            "refresh bin/ from the release selected by "
-            "hpc-releases/LATEST, then exit"
-        ),
-    )
-
     # Internal arguments used when relaunching from the desktop or through sudo.
     parser.add_argument(
         "--terminal",
@@ -665,12 +592,6 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # Maintainer operation. It must never fall through into provisioning.
-    if args.update:
-        update_installer_payload()
-        return 0
-
-    # Everything below this point is the stock-HMI installation operation.
     if os.geteuid() != 0:
         if not sys.stdout.isatty() and not args.terminal:
             if open_own_terminal():
@@ -698,7 +619,6 @@ if __name__ == "__main__":
     except (
         OSError,
         RuntimeError,
-        json.JSONDecodeError,
         subprocess.CalledProcessError,
     ) as error:
         print(f"ERROR: {error}", file=sys.stderr)

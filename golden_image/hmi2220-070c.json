@@ -1,0 +1,11 @@
+{
+    "debs": "ed-linux-image-6.6.31-v8 ed-hmi2220-070c-firmware ed-base-bsp-v8 ed-touchscreen-test ed-reboot ed-rtc ed-qmi-tool ed-usb-tools ed-lvd",
+    "test": {
+        "target": "22xx",
+        "json": "delivery-hmi2210.json"
+    },
+    "cmd": [
+        "curl -s 'https://apt.edatec.cn/downloads/202403/kernel-change.sh' | sudo bash -s 6.6.31-rpi-v8",
+        "dpkg -l | grep linux-image | awk '{print $2}' | grep ^linux | while read line; do sudo apt-mark hold $line; done"
+    ]
+}

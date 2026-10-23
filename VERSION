@@ -1,0 +1,6 @@
+# stock_hmi setup version (MAJOR.MINOR.PATCH), tagged as setup-vMAJOR.MINOR.PATCH.
+# MAJOR: needs a different golden image or Debian release, or breaks the app interface.
+# MINOR: adds configuration or a migration.
+# PATCH: fixes only.
+# make-usb-kit.py copies this file into the kit; stock-hmi.py records it in /etc/hpc-release.
+1.0.0
