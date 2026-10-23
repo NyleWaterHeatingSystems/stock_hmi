@@ -908,4 +908,3 @@ rotation, is in `dev_test/stock-hmi2.py` (see `dev_test/TODO.md`).
 | Run the provisioner with `/etc/hpc-release` support on hardware and record the 2.3 output | [2.3](#23-check-the-provisioned-hmi) |
 | Later: refuse an app whose manifest `requires_setup` is newer than the unit's `HPC_SETUP` | `stock-hmi.py` |
 | Try the Windows "Internet Connection Sharing" fallback | [0](#fallback-the-laptop-as-a-dhcp-server) |
-| Build `HPC_HMI_Provissioning.pdf` from the updated `HPC_HMI_Provissioning.tex` (the old PDF described the desktop double-click process and was removed) | `HPC_HMI_Provissioning.tex` |
