@@ -414,6 +414,8 @@ systemctl is-enabled regenerate_ssh_host_keys.service   # enabled
 ls /etc/ssh/ssh_host_* 2>&1                             # No such file or directory
 wc -c < /etc/machine-id                                 # 0
 systemctl is-enabled ed-lte-daemon.service              # disabled
+ls -l /etc/NetworkManager/system-connections/           # only eth2-hpc.nmconnection, -rw------- root root
+ls -l /boot/firmware/userconf.txt                       # No such file (it holds a password hash)
 
 unset HISTFILE; rm -f ~/.bash_history; sudo poweroff
 ```
