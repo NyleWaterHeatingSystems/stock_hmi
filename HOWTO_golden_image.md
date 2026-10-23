@@ -523,7 +523,7 @@ Done by the technician, offline.
 
    | Check | Command | Expected (first flash) |
    | --- | --- | --- |
-   | Reachable, new host key | `ssh-keygen -R 192.168.0.4; ssh pi@192.168.0.4` | Logs in as `pi@raspberrypi` (fingerprint prompt ⏳ not yet recorded) |
+   | Reachable, new host key | `ssh-keygen -R 192.168.0.4; ssh pi@192.168.0.4` | `The authenticity of host '192.168.0.4' can't be established. ED25519 key fingerprint is …` (new key), then logs in as `pi@raspberrypi` |
    | Filesystem expanded | `df -h /` | `/dev/mmcblk0p2   29G  2.1G   25G   8% /` |
    | Unique machine ID | `cat /etc/machine-id` | 32 hex chars, new on each HMI (first flash: `fca65ad5…3517`) |
    | Kernel | `uname -r` | `6.6.31-rpi-v8` |
