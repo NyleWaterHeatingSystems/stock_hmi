@@ -696,6 +696,7 @@ The kit contains:
 ```text
 USB/
 ├── stock-hmi.py
+├── VERSION       # setup version, e.g. 1.0.0
 ├── bin/          # HPC_LinuxGUI, assets/, release-manifest.json
 ├── debs/         # offline packages: iptables, libip6tc2, libpaho-mqtt1.3
 ├── network/      # eth2-hpc.nmconnection: eth2 = 192.168.0.4

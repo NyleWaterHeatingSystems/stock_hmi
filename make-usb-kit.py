@@ -2,7 +2,7 @@
 """Assemble an offline provisioning kit (USB contents) for the HPC HMI.
 
 Runs on the maintainer's computer. Combines this repo's setup payload
-(stock-hmi.py, debs/, network/) with one HMI release from a
+(stock-hmi.py, VERSION, debs/, network/) with one HMI release from a
 local hpc-releases checkout, verified against the release manifest.
 """
 
@@ -21,10 +21,11 @@ REPO_DIRECTORY = Path(__file__).resolve().parent
 PAYLOAD_DIRECTORY = REPO_DIRECTORY / "BOOKWORM"
 DEFAULT_RELEASES = REPO_DIRECTORY.parent / "hpc-releases"
 RELEASE_NAME_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(-RC\d+)?$")
+VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 
 # Everything this script writes at the top level of the kit; --replace removes
 # only these, so unrelated files on the stick are left alone.
-KIT_ENTRIES = ("stock-hmi.py", "bin", "debs", "network", "KIT.txt", "SHA256SUMS")
+KIT_ENTRIES = ("stock-hmi.py", "VERSION", "bin", "debs", "network", "KIT.txt", "SHA256SUMS")
 
 
 def calculate_sha256(filename: Path) -> str:
@@ -33,6 +34,16 @@ def calculate_sha256(filename: Path) -> str:
         for block in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def read_setup_version() -> str:
+    """Return this repo's setup version from VERSION, e.g. "setup-v1.0.0"."""
+    version_file = REPO_DIRECTORY / "VERSION"
+    for line in version_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if VERSION_PATTERN.match(line):
+            return f"setup-v{line}"
+    raise RuntimeError(f"{version_file} must contain a MAJOR.MINOR.PATCH line")
 
 
 def resolve_release(releases: Path, name: str | None) -> Path:
@@ -124,6 +135,7 @@ def write_checksums(output: Path) -> None:
 
 
 def build_kit(output: Path, releases: Path, release_name: str | None, replace: bool) -> None:
+    setup_version = read_setup_version()
     release_directory = resolve_release(releases, release_name)
     manifest, release_binary = load_hmi_component(release_directory)
     for required in (REPO_DIRECTORY / "stock-hmi.py",
@@ -134,6 +146,7 @@ def build_kit(output: Path, releases: Path, release_name: str | None, replace: b
     prepare_output(output, replace)
 
     shutil.copyfile(REPO_DIRECTORY / "stock-hmi.py", output / "stock-hmi.py")
+    shutil.copyfile(REPO_DIRECTORY / "VERSION", output / "VERSION")
     copy_tree(PAYLOAD_DIRECTORY / "debs", output / "debs")
     copy_tree(PAYLOAD_DIRECTORY / "network", output / "network")
 
@@ -145,6 +158,7 @@ def build_kit(output: Path, releases: Path, release_name: str | None, replace: b
     built = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     (output / "KIT.txt").write_text(
         f"built:     {built}\n"
+        f"setup:     {setup_version}\n"
         f"app:       {manifest.get('release_version', release_directory.name)}"
         f" ({release_binary.name})\n"
         f"stock_hmi: {git_description(REPO_DIRECTORY)}\n"

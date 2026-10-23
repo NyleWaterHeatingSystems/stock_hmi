@@ -26,6 +26,7 @@ check, are in [HOWTO_golden_image.md](HOWTO_golden_image.md).
 stock_hmi/
 ├── stock-hmi.py          # the provisioner; runs on the HMI as root
 ├── make-usb-kit.py       # builds the provisioning USB on the maintainer's PC
+├── VERSION               # setup version (semver), tagged setup-vX.Y.Z
 ├── BOOKWORM/             # setup payload for Debian 12 (Bookworm)
 │   ├── debs/             # offline .deb dependencies
 │   └── network/          # eth2-hpc.nmconnection: HPC port eth2 = 192.168.0.4
@@ -51,10 +52,11 @@ checkout. It verifies the HMI binary against the release manifest, then writes:
 ```text
 USB/
 ├── stock-hmi.py
+├── VERSION
 ├── bin/                  # HPC_LinuxGUI, assets/, release-manifest.json
 ├── debs/
 ├── network/
-├── KIT.txt               # release, stock_hmi commit and build time
+├── KIT.txt               # setup version, release, stock_hmi commit and build time
 └── SHA256SUMS            # check on the HMI with: sha256sum -c SHA256SUMS
 ```
 
