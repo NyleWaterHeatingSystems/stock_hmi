@@ -1,8 +1,0 @@
-<object runtimeID="600" className="UIVIEW" frame="0,0,521,225" backgroundColor="WHITE">
-  
-  <object runtimeID="601" className="UIPICKERVIEW" frame="0,0,146,225"/>
-  <object runtimeID="602" className="UIPICKERVIEW" frame="187,0,146,225"/>
-  <object runtimeID="603" className="UIPICKERVIEW" frame="375,0,146,225"/>
-
-</object>
-

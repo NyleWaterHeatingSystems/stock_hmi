@@ -8,3 +8,6 @@ __pycache__/
 scratch/
 test/
 
+
+# Provisioning kits are assembled by make-usb-kit.py, never committed
+BOOKWORM/bin/
