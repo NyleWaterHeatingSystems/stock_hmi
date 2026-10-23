@@ -282,7 +282,7 @@ Harmless output you can ignore:
 `/opt/ed-touchscreen-test/ed-touch-test` is EDATEC's factory test program, run
 by `touch-test.service`. The package has no command-line tool for us.
 
-### 1.5 Prepare the image for cloning ⏳
+### 1.5 Prepare the image for cloning ✅
 
 #### Pre-checks ✅
 
@@ -385,7 +385,7 @@ If the profile is not active, check that the file is mode `600` and owned by
 root (NetworkManager ignores it otherwise), and that `ID_PATH` matches the
 `[match] path=` line.
 
-#### Cleanup
+#### Cleanup ✅
 
 Remove anything unique to this unit so every flashed HMI is distinct. This must
 be the **last** thing done before capture. **Do not boot the HMI again before
@@ -420,25 +420,56 @@ ls -l /boot/firmware/userconf.txt                       # No such file (it holds
 unset HISTFILE; rm -f ~/.bash_history; sudo poweroff
 ```
 
-### 1.6 Capture and shrink ⏳
+### 1.6 Capture and shrink ✅
+
+The image file is named after the build date: `hpc-golden-YYYY-MM-DD.img`. The
+first build is `hpc-golden-2026-10-22.img`.
 
 1. Expose the eMMC ([procedure above](#procedure-expose-the-emmc-on-the-laptop-used-in-11-and-15)).
-   Do not mount its partitions.
-2. Copy the whole disk (it's 29.1 GiB, so check free space):
+   The desktop may auto-mount `bootfs`. Unmount it, and do not mount anything else:
    ```bash
-   sudo dd if=/dev/sdX of=hpc-golden-bookworm-6.6.31.img bs=4M status=progress conv=fsync
+   udisksctl unmount -b /dev/sdX1
+   lsblk /dev/sdX          # MOUNTPOINTS column empty
    ```
-3. Shrink and compress it with [PiShrink](https://github.com/Drewsif/PiShrink).
-   PiShrink also arranges for the filesystem to re-expand on first boot.
+2. Copy the whole disk. It's 29.1 GiB, so check free space first. **`if=` is the
+   eMMC and `of=` is the file**; reversing them overwrites the eMMC.
    ```bash
-   sudo pishrink.sh -Z hpc-golden-bookworm-6.6.31.img    # → .img.xz
-   sha256sum hpc-golden-bookworm-6.6.31.img.xz > hpc-golden-bookworm-6.6.31.img.xz.sha256
+   sudo dd if=/dev/sdX of=hpc-golden-2026-10-22.img bs=4M status=progress conv=fsync
+   sudo chown $USER: hpc-golden-2026-10-22.img
    ```
-4. Record in the image's notes:
-   - the Pi OS release (2026-10-06);
-   - the EDATEC package versions (`dpkg -l | grep ed-`);
-   - the kernel (`6.6.31-rpi-v8`);
-   - the temporary user name.
+3. Shrink and compress it with [PiShrink](https://github.com/Drewsif/PiShrink)
+   (Arch: `yay -S pishrink-git`, command `pishrink.sh`). `-Z` compresses with
+   xz, and `-a` uses all CPU cores.
+   ```bash
+   sudo pishrink.sh -Z -a hpc-golden-2026-10-22.img    # → .img.xz, replaces the .img
+   sha256sum hpc-golden-2026-10-22.img.xz > hpc-golden-2026-10-22.img.xz.sha256
+   ls -lh hpc-golden-2026-10-22.img*
+   ```
+   Observed on the first build (PiShrink v26.03.16):
+   ```
+   pishrink.sh: An existing /etc/rc.local was not found, autoexpand may fail...
+   Creating new /etc/rc.local
+   rootfs: 64723/1810016 files (0.2% non-contiguous), 679388/7500800 blocks
+   Resizing the filesystem on /dev/loop0 to 825439 (4k) blocks.
+   pishrink.sh: Zeroed 950M
+   pishrink.sh: Shrunk hpc-golden-2026-10-22.img.xz from 30G to 507M in 1m 30s
+   ```
+   - The `rc.local` warning is expected on Bookworm, which ships without one.
+     PiShrink writes its own `/etc/rc.local` to expand the filesystem on first
+     boot; whether it does so is checked in 1.7.
+   - `fsck` errors at the "Checking filesystem" step mean the copy is bad: redo
+     step 2.
+4. First-build result:
+
+   | File | Size | SHA-256 |
+   | --- | --- | --- |
+   | `hpc-golden-2026-10-22.img.xz` | 507M | `dcf8cf1403c065be78ce5aad20b8625a58395161cd887240d99ba2af0d2e0020` |
+
+5. Record in the image's notes:
+   - Pi OS release: `2026-10-06-raspios-bookworm-arm64-lite` ✅
+   - kernel: `6.6.31-rpi-v8` (EDATEC `ed-linux-image-6.6.31-v8`, held) ✅
+   - temporary user: `pi` (password in the team password store) ✅
+   - EDATEC package versions (`dpkg -l 'ed-*'`) ⏳ collect on the first flashed HMI (1.7)
 
 ### 1.7 Flash the golden image onto an HMI ⏳
 
@@ -446,7 +477,7 @@ Done by the technician, offline.
 
 1. Check the image:
    ```bash
-   sha256sum -c hpc-golden-bookworm-6.6.31.img.xz.sha256
+   sha256sum -c hpc-golden-2026-10-22.img.xz.sha256
    ```
 2. Expose the eMMC ([procedure above](#procedure-expose-the-emmc-on-the-laptop-used-in-11-and-15)).
    The loader folder comes from the USB.
@@ -454,11 +485,25 @@ Done by the technician, offline.
    disk → Write. No customisation is needed, because the image already has `pi`
    and SSH. Alternatively:
    ```bash
-   xzcat hpc-golden-bookworm-6.6.31.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+   xzcat hpc-golden-2026-10-22.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
    ```
 4. Exit `rpiboot`, unplug the Micro USB cable, connect Ethernet, and power on.
    The panel should show the console within about 30 s. First boot expands the
    filesystem.
+5. Verify from the laptop on the eth2 socket ([normal method](#normal-method-the-hpc-port-eth2-at-19216804)) ⏳:
+
+   | Check | Command | Expected |
+   | --- | --- | --- |
+   | Reachable, new host key | `ssh-keygen -R 192.168.0.4; ssh pi@192.168.0.4` | ⏳ prompts for a new fingerprint |
+   | Filesystem expanded | `df -h /` | ⏳ ~29G size (not ~3G) |
+   | Unique machine ID | `cat /etc/machine-id` | ⏳ 32 hex chars, differs per HMI |
+   | Kernel | `uname -r` | ⏳ `6.6.31-rpi-v8` |
+   | Display | `cat /proc/fb` | ⏳ `0 vc4drmfb` |
+   | eth2 profile | `nmcli -f NAME,DEVICE con show --active` | ⏳ `eth2-hpc  eth2` |
+   | EDATEC versions for 1.6 notes | `dpkg -l 'ed-*'` | ⏳ record them |
+
+   If `df` still shows ~3G, PiShrink's `/etc/rc.local` didn't run; expand by
+   hand with `sudo raspi-config nonint do_expand_rootfs && sudo reboot`.
 
 ---
 
@@ -483,7 +528,7 @@ USB/
 ├── network/
 │   └── eth2-hpc.nmconnection   # eth2 = 192.168.0.4, re-applied on every run
 ├── rpiboot-msd-cm4/      # loader files from section 0
-└── hpc-golden-bookworm-6.6.31.img.xz (+ .sha256)
+└── hpc-golden-2026-10-22.img.xz (+ .sha256)
 ```
 
 Build the bundle from the repo, not from an old stick. The repo is the source of
