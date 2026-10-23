@@ -541,27 +541,44 @@ Done by the technician, offline.
 This installs the HPC software onto a freshly flashed golden image. It is
 offline: the technician has a laptop, an Ethernet cable and the provisioning USB.
 
-### 2.1 Provisioning USB contents
+### 2.1 Build the provisioning USB ⏳
 
-Copy the **contents** of `BOOKWORM/` to the top level of the USB, plus the tools:
+On the maintainer's PC, with `stock_hmi` and `hpc-releases` checked out side by
+side. Use a FAT32 or exFAT stick, and don't build from an old stick: the repos
+are the source of truth.
+
+```bash
+cd stock_hmi
+./make-usb-kit.py /run/media/$USER/<USB>              # release named in hpc-releases/CURRENT
+./make-usb-kit.py /run/media/$USER/<USB> --release v2.0.8 --replace   # a specific release
+udisksctl unmount -b /dev/sdX1
+```
+
+It checks the HMI binary against the release manifest's SHA-256 before copying,
+and prints what went into the kit. Observed when tested into a folder:
+
+```
+built:     2026-10-23T16:02:42Z
+app:       v2.0.8 (hmi_v2.0.8.bin)
+stock_hmi: 283621e-dirty
+releases:  a808bf7
+```
+
+`-dirty` means the `stock_hmi` checkout had uncommitted changes. Build release
+kits from a clean, committed checkout. The kit:
 
 ```text
 USB/
-├── stock-hmi.py          # or the PyInstaller-built `stock-hmi`, built ON arm64
-├── bin/
-│   ├── HPC_LinuxGUI
-│   ├── assets/
-│   ├── settings.txt
-│   └── release-manifest.json
-├── debs/                 # offline .deb dependencies (iptables, libpaho-mqtt, ...)
-├── network/
-│   └── eth2-hpc.nmconnection   # eth2 = 192.168.0.4, re-applied on every run
-├── rpiboot-msd-cm4/      # loader files from section 0
-└── hpc-golden-2026-10-22.img.xz (+ .sha256)
+├── stock-hmi.py
+├── bin/          # HPC_LinuxGUI, assets/, settings.txt, release-manifest.json
+├── debs/         # offline .deb dependencies (iptables, libpaho-mqtt, ...)
+├── network/      # eth2-hpc.nmconnection: eth2 = 192.168.0.4, re-applied on every run
+├── KIT.txt       # the versions above
+└── SHA256SUMS    # one line per file (331 for v2.0.8)
 ```
 
-Build the bundle from the repo, not from an old stick. The repo is the source of
-truth.
+The golden image and the `rpiboot-msd-cm4/` loader folder are only needed for
+flashing (1.7). Copy them to the stick by hand if the technician will flash too.
 
 ### 2.2 Run the provisioner ⏳
 
@@ -573,10 +590,15 @@ double-click. The technician works over SSH:
 nmcli con up hmi-eth2               # laptop = 192.168.0.100/24
 ssh pi@192.168.0.4
 
+# on the HMI: the provisioner needs these; any MISSING stops it partway (⏳ not yet run)
+for c in rsync setcap ldd visudo nmcli udevadm hostnamectl python3; do printf '%-12s %s\n' $c "$(command -v $c || echo MISSING)"; done
+
 # on the HMI: insert the provisioning USB
 lsblk                                   # find it, e.g. sda1
 sudo mount /dev/sda1 /mnt
 cd /mnt
+cat KIT.txt                             # the release you expect?
+sha256sum -c --quiet SHA256SUMS && echo KIT OK   # silent per-file, then KIT OK
 sudo python3 ./stock-hmi.py             # or: sudo ./stock-hmi
 ```
 
@@ -616,25 +638,13 @@ What `stock-hmi.py` does:
 
 ## 3. Updating the HMI software
 
-Two steps: the maintainer refreshes the bundle, then the technician applies it.
+Two steps: the maintainer builds a kit, then the technician applies it.
 
-### 3.1 Maintainer: refresh the bundle (online) ⏳
+### 3.1 Maintainer: build a kit with the new release ⏳
 
-`--update` updates the **installer bundle on the maintainer's computer**, not an
-HMI. It clones
-[`hpc-releases`](https://github.com/NyleWaterHeatingSystems/hpc-releases), reads
-the release named in its `CURRENT` file (`versions/<name>/manifest.json`; a
-plain text file, because the repo travels on FAT USB sticks that can't hold
-symlinks), checks the HMI binary's SHA-256, and swaps it into
-`bin/` atomically. It keeps `settings.txt` and records `release-manifest.json`.
-
-```bash
-cd BOOKWORM
-./stock-hmi.py --update
-cat bin/release-manifest.json      # confirm release_version
-```
-
-Commit the refreshed `BOOKWORM/bin/`, then rebuild the USB (2.1).
+Publish the release to `hpc-releases` (see its README), pull it, then build a
+fresh kit as in 2.1. There is no separate update command: the kit always takes
+the app straight from `hpc-releases`.
 
 ### 3.2 Technician: apply it to a provisioned HMI ⏳
 
@@ -646,6 +656,7 @@ services and reboots.
 ```bash
 ssh nwhs@192.168.0.4                # laptop on eth2 as 192.168.0.100/24
 sudo mount /dev/sda1 /mnt && cd /mnt
+cat KIT.txt; sha256sum -c --quiet SHA256SUMS && echo KIT OK
 sudo python3 ./stock-hmi.py         # run with sudo directly: nwhs does not have
                                     # passwordless sudo, so self-elevation would fail
 ```

@@ -1,84 +1,72 @@
 # Stock HMI Provisioner for the EDATEC ED-HMI2220-070C
 
-> **Work in progress:** This is now an offline installer, with the option 
->  to update the HPC_HMI software (online) From:
->  https://github.com/NyleWaterHeatingSystems/hpc-releases
+Provisions an EDATEC ED-HMI2220-070C, flashed with the golden image, as an HPC
+HMI. Fully offline: the technician needs a laptop, an Ethernet cable and the
+provisioning USB. Step-by-step instructions, with expected output for every
+check, are in [HOWTO_golden_image.md](HOWTO_golden_image.md).
 
-
-## Overview
-
-This package provisions a stock EDATEC ED-HMI2220-070C for use as an HPC HMI.
-Load the package to a stock EDATEC OS installation, then run the provisioning
-script. The script configures the operating system, user account, application,
-and startup services.
-
-## Package structure
+## Repository layout
 
 ```text
-OS_Version/
-├── bin
-│   ├── assets
-│   ├── HPC_LinuxGUI
-│   └── settings.txt
-├── debs
-│   ├── iptables_1.8.9-2_arm64.deb
-│   ├── libpaho-mqtt1.3_1.3.12-1_arm64.deb
-│   └── libx11-dev_2%3a1.8.4-2+deb12u2_arm64.deb
-├── network
-│   └── eth2-hpc.nmconnection
-└── stock-hmi
+stock_hmi/
+├── stock-hmi.py          # the provisioner; runs on the HMI as root
+├── make-usb-kit.py       # builds the provisioning USB on the maintainer's PC
+├── BOOKWORM/             # setup payload for Debian 12 (Bookworm)
+│   ├── debs/             # offline .deb dependencies
+│   ├── network/          # eth2-hpc.nmconnection: HPC port eth2 = 192.168.0.4
+│   └── settings.txt      # default HMI settings, installed as bin/settings.txt
+├── golden_image/         # EDATEC install scripts used to build the golden image
+└── HOWTO_golden_image.md
 ```
 
-The `network` directory holds the NetworkManager profile that pins the HPC
-controller port (eth2) to `192.168.0.4`.
+The HMI application is **not** stored here. Releases live in the sibling
+[`hpc-releases`](https://github.com/NyleWaterHeatingSystems/hpc-releases)
+repository, and `make-usb-kit.py` copies one in when it builds a kit.
 
-The `bin` directory must contain the precompiled `HPC_LinuxGUI` executable, its
-complete `assets` directory, and `settings.txt`.
+## Building the provisioning USB
 
-The `debs` folder must contain both the the HMI program dependencies, AND
-the additional software packages you want to install. 
 ```bash
-$ stock-hmi --update
+./make-usb-kit.py /run/media/$USER/<USB>              # release named in hpc-releases/CURRENT
+./make-usb-kit.py /run/media/$USER/<USB> --release v2.0.8
+./make-usb-kit.py /run/media/$USER/<USB> --replace    # overwrite an existing kit
 ```
-Will only update the HPC HMI software, and WILL NOT try to update the OS_version
-matched application dependencies or additional software packages.
+
+By default it reads `../hpc-releases`; use `--releases PATH` for another
+checkout. It verifies the HMI binary against the release manifest, then writes:
+
+```text
+USB/
+├── stock-hmi.py
+├── bin/                  # HPC_LinuxGUI, assets/, settings.txt, release-manifest.json
+├── debs/
+├── network/
+├── KIT.txt               # release, stock_hmi commit and build time
+└── SHA256SUMS            # check on the HMI with: sha256sum -c SHA256SUMS
+```
 
 ## Usage
 
-Run the provisioner from the directory containing `stock-hmi.py`, `bin/` and `debs`:
+On the HMI, from the mounted USB:
 
 ```bash
-$./stock-hmi.py
-```
-The installer may also operated from a USB stick, by running the precompiled
-`stock-hmi` application provided it is accompanied by the contents of `bin` and `debs`
-
-## Installation behavior
-
-The provisioner copies the application files to:
-
-```text
-/home/<user>/hpc-hmi/bin/
+sudo python3 ./stock-hmi.py
 ```
 
-It then creates a service that automatically starts:
+It installs the debs, creates the `nwhs` user, copies `bin/` to
+`/home/nwhs/hpc-hmi/bin/`, configures the hostname, HPC port, sudo, touchscreen
+and startup services, removes every other login user on the next boot, and
+reboots. Re-running it with a newer kit is the update path.
 
-```text
-/home/<user>/hpc-hmi/bin/HPC_LinuxGUI
-```
+The startup service runs `/home/nwhs/hpc-hmi/bin/HPC_LinuxGUI`. If that name or
+path changes, update the service definition in `stock-hmi.py`.
 
-The service assumes that the executable is named `HPC_LinuxGUI` and remains in
-that location. If the name or installation path changes, the service definition
-in `stock-hmi.py` must also be updated.
+## Maintenance
 
-## Maintenance and rebuilding
+- New HMI release: publish it to `hpc-releases`, then rebuild the kit.
+- New or updated packages: add the .deb files to `BOOKWORM/debs/`.
+- OS, user, network or service configuration: edit `stock-hmi.py` or the files
+  in `BOOKWORM/`.
 
-- To update the HMI application, run $`./stock-hmi.py --update`  
-- To change OS, user-account, or service configuration, edit `stock-hmi.py`.
-- To add additional packages, include the deb files in the debs directoy.
-- The application is installed from a precompiled binary; it is not compiled by
-  stock-hmi.py.  
-  
 ## Building a compiled binary of stock-hmi.py
 
 The Python script can be packaged as a single executable with PyInstaller:
@@ -94,26 +82,9 @@ dist/stock-hmi
 ```
 Copy the compiled stock-hmi binary to the root project directory. 
 
-PyInstaller packages only the provisioning script. The `bin/`, `debs` directories and 
-thier contents must still be distributed alongside the executable as
-bundled resources.
-
-## Maintenance use case 1:
-update the HPC_LinuxGUI binary executable. Succesive Runs do not require recompiling.
-
-## Maintenance use case 2:
-Add additional software packages ( deb files ) Succesive Runs do not require recompiling.
-
-## Maintenance use case 3:
-Change some settings for how stock-hmi.py configures the user account, services, or OS 
-behavior. This requires recompiling, but only in the application use case where you 
-might expect to simply double click the application binary, to provission a unit. 
-running:
-```code
-$./stock-hmi.py
-```
-would work. The compled application is intended to be a simple means for a non-technical user
-to go from a stock HMI to an HPC ready device. 
+PyInstaller packages only the provisioning script. The `bin/`, `debs/` and
+`network/` directories must still sit next to the executable. Build it on arm64
+(on an HMI), since PyInstaller does not cross-compile.
 
 ## Security
 
