@@ -623,7 +623,9 @@ Two steps: the maintainer refreshes the bundle, then the technician applies it.
 `--update` updates the **installer bundle on the maintainer's computer**, not an
 HMI. It clones
 [`hpc-releases`](https://github.com/NyleWaterHeatingSystems/hpc-releases), reads
-`LATEST/manifest.json`, checks the HMI binary's SHA-256, and swaps it into
+the release named in its `CURRENT` file (`versions/<name>/manifest.json`; a
+plain text file, because the repo travels on FAT USB sticks that can't hold
+symlinks), checks the HMI binary's SHA-256, and swaps it into
 `bin/` atomically. It keeps `settings.txt` and records `release-manifest.json`.
 
 ```bash

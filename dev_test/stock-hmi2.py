@@ -76,6 +76,25 @@ def calculate_sha256(filename):
     return digest.hexdigest()
 
 
+RELEASE_NAME_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(-RC\d+)?$")
+
+
+def current_release_directory(repository_directory: Path) -> Path:
+    """Resolve hpc-releases/CURRENT (a one-line release name) to versions/<name>/."""
+    current_file = repository_directory / "CURRENT"
+    if not current_file.is_file():
+        raise RuntimeError(f"Release repository has no CURRENT file: {current_file}")
+
+    release_name = current_file.read_text(encoding="utf-8").strip()
+    if not RELEASE_NAME_PATTERN.match(release_name):
+        raise RuntimeError(f"Invalid release name in CURRENT: {release_name!r}")
+
+    release_directory = repository_directory / "versions" / release_name
+    if not release_directory.is_dir():
+        raise RuntimeError(f"CURRENT names a missing release: {release_directory}")
+    return release_directory
+
+
 def update_installer_payload():
     """
     Download the latest HMI release and update this installer's bin/ payload.
@@ -114,8 +133,8 @@ def update_installer_payload():
             check=True,
         )
 
-        latest_directory = (repository_directory / "LATEST").resolve()
-        manifest_file = latest_directory / "manifest.json"
+        release_directory = current_release_directory(repository_directory)
+        manifest_file = release_directory / "manifest.json"
 
         if not manifest_file.is_file():
             raise RuntimeError(
@@ -135,14 +154,14 @@ def update_installer_payload():
                 "The release manifest does not contain a valid HMI component"
             ) from error
 
-        # Prevent a manifest filename from escaping LATEST/.
+        # Prevent a manifest filename from escaping the release directory.
         if Path(release_filename).name != release_filename:
             raise RuntimeError(
                 f"Invalid HMI filename in manifest: {release_filename}"
             )
 
-        release_binary = latest_directory / release_filename
-        release_assets = latest_directory / "assets"
+        release_binary = release_directory / release_filename
+        release_assets = release_directory / "assets"
 
         if not release_binary.is_file():
             raise RuntimeError(
@@ -732,7 +751,7 @@ def main() -> int:
         action="store_true",
         help=(
             "refresh bin/ from the release selected by "
-            "hpc-releases/LATEST, then exit"
+            "hpc-releases/CURRENT, then exit"
         ),
     )
 
