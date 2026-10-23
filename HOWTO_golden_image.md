@@ -888,3 +888,4 @@ rotation, is in `dev_test/stock-hmi2.py` (see `dev_test/TODO.md`).
 | Script the pre-capture cleanup | [1.5](#clean-up-before-capturing) |
 | Give `stock_hmi` a version (`VERSION` file, `setup-v1.0.0` tag) and record the golden, setup and app versions in `/etc/hpc-release` on each unit | `readme.md` |
 | Try the Windows "Internet Connection Sharing" fallback | [0](#fallback-the-laptop-as-a-dhcp-server) |
+| Build `HPC_HMI_Provissioning.pdf` from the updated `HPC_HMI_Provissioning.tex` (the old PDF described the desktop double-click process and was removed) | `HPC_HMI_Provissioning.tex` |

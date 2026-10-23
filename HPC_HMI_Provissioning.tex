@@ -10,40 +10,40 @@
 \maketitle
 
 \begin{abstract}
-	This procedure configures a new stock HMI with the current HPC interface software. The provided USB provisioning media contains the application, required dependencies, and automated installer. No internet connection, additional hardware, or manual file copying is required.
+	This procedure configures an ED-HMI2220-070C HMI with the current HPC interface software. The HMI must already be flashed with the HPC golden image. The USB provisioning media contains the application, its dependencies and the installer. No internet connection is required. You need a laptop with an Ethernet port and an SSH client, and an Ethernet cable.
 \end{abstract}
 
-\section{Turn on the HMI}
-Providing power to the HMI should start the HMI. When it is fully loaded, you will see a desktop. The HMI may take approximately 30 seconds to boot initially.
+\section{Connect the laptop to the HMI}
+\begin{enumerate}
+	\item Connect the laptop to the HMI's HPC controller Ethernet port (eth2) with an Ethernet cable. % TODO: name the labelled socket once it has been identified.
+	\item Set the laptop's wired Ethernet address to \texttt{192.168.0.100}, netmask \texttt{255.255.255.0}, with no gateway.
+	\item Power on the HMI and wait about 30 seconds. The screen shows a text login prompt.
+	\item On the laptop, open a terminal and run \texttt{ssh pi@192.168.0.4}. The password is \texttt{raspberry}.
+\end{enumerate}
 
-\section{Insert the HPC HMI provisional media}
-Insert the HPC HMI provisional media into any of the available USB type A connectors.The USB stick will auto mount. Select open,  then double click on the "stock-hmi" application. 
+\section{Run the installer}
+\begin{enumerate}
+	\item Insert the HPC HMI provisioning media into any USB type A port on the HMI.
+	\item In the SSH session, run:
+\begin{verbatim}
+sudo mount /dev/sda1 /mnt
+cd /mnt
+cat KIT.txt
+sha256sum -c --quiet SHA256SUMS && echo KIT OK
+sudo python3 ./stock-hmi.py
+\end{verbatim}
+	\item \texttt{KIT.txt} shows the software version on the media. \texttt{KIT OK} confirms the media is intact. If any line says \texttt{FAILED}, stop and replace the media.
+	\item The installer runs for about 15 seconds, then reboots the HMI and closes the SSH session. When the HMI has restarted, the screen shows the HPC HMI graphical user interface.
+	\item Remove the provisioning media.
+\end{enumerate}
 
-The application will run, and the HMI may reboot in the process. When it is complete, you will see the HPC HMI Graphical user interface. 
-
-Remove your HPC HMI provisional media.
+The \texttt{pi} login no longer exists after provisioning. To log in again, use the \texttt{nwhs} user and the standard password.
 
 \section*{Creating Replacement HMI Provisioning Media}
 
-If your HPC HMI provisioning media is lost, damaged, or otherwise unusable, create a replacement USB drive as follows:
+Provisioning media is built from the \texttt{stock\_hmi} and \texttt{hpc-releases} repositories with the \texttt{make-usb-kit.py} script. Ask the controls group for a replacement, or follow section 2.1 of \texttt{HOWTO\_golden\_image.md} in:\par
+\url{https://github.com/NyleWaterHeatingSystems/stock_hmi}
 
-\begin{enumerate}
-	\item On your PC, go to:\par
-	[
-	\url{https://github.com/NyleWaterHeatingSystems/stock_hmi}
-	]
-	
-	\item Select \textbf{Download ZIP}, then extract the downloaded ZIP file.
-	
-	\item Open the extracted folder and navigate to the \texttt{BOOKWORM} directory.
-	
-	\item Insert a blank USB drive and copy the \emph{contents} of the \texttt{BOOKWORM} directory to the top level of the USB drive.
-	
-	\item Safely eject the USB drive.
-	
-\end{enumerate}
-
-The USB drive is now ready to provision an HPC HMI.
-
+Copying files from the repository by hand no longer works: the application is not stored in \texttt{stock\_hmi}.
 
 \end{document}
