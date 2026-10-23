@@ -4,8 +4,10 @@
 from __future__ import annotations
 import argparse
 import grp
+import json
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import pwd
 import re
@@ -44,6 +46,9 @@ APP_PASSWORD_HASH = (
 
 
 LOG_FILE = Path("/var/log/hpc-stock-installer.log")
+# os-release style KEY=value record of what is installed: the golden image
+# writes HPC_GOLDEN, provisioning writes HPC_SETUP*, the app install HPC_APP*.
+RELEASE_INFO_FILE = Path("/etc/hpc-release")
 
 def frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
@@ -453,6 +458,68 @@ ExecStart=-{agetty} --autologin {APP_USER} --noclear %I $TERM
     run(["systemctl", "disable", "display-manager.service"], check=False)
 
 
+def utc_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def update_release_info(values: dict[str, str]) -> None:
+    """Set these keys in /etc/hpc-release, keeping every other line."""
+    # Values must be shell-sourceable without quotes.
+    values = {key: re.sub(r"[^A-Za-z0-9._:+-]", "_", value) for key, value in values.items()}
+    lines = []
+    if RELEASE_INFO_FILE.is_file():
+        lines = RELEASE_INFO_FILE.read_text(encoding="utf-8").splitlines()
+
+    remaining = dict(values)
+    updated = []
+    for line in lines:
+        key = line.split("=", 1)[0].strip()
+        if key in remaining:
+            updated.append(f"{key}={remaining.pop(key)}")
+        else:
+            updated.append(line)
+    updated.extend(f"{key}={value}" for key, value in remaining.items())
+
+    temporary = RELEASE_INFO_FILE.with_name(f".{RELEASE_INFO_FILE.name}.tmp")
+    temporary.write_text("\n".join(updated) + "\n", encoding="utf-8")
+    temporary.chmod(0o644)
+    os.replace(temporary, RELEASE_INFO_FILE)
+    logging.info("Recorded in %s: %s", RELEASE_INFO_FILE, ", ".join(f"{k}={v}" for k, v in values.items()))
+
+
+def read_setup_version() -> str:
+    """The kit's VERSION file as "setup-vX.Y.Z", or "unknown" for an older kit."""
+    version_file = bundle_directory() / "VERSION"
+    if version_file.is_file():
+        for line in version_file.read_text(encoding="utf-8").splitlines():
+            if re.fullmatch(r"\d+\.\d+\.\d+", line.strip()):
+                return f"setup-v{line.strip()}"
+    return "unknown"
+
+
+def record_app_release(app_dir: Path) -> None:
+    """Record the installed app's version and source commit from its release manifest."""
+    manifest_file = app_dir / "release-manifest.json"
+    try:
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        manifest = {}
+    update_release_info({
+        "HPC_APP": str(manifest.get("release_version") or "unknown"),
+        "HPC_APP_COMMIT": str(manifest.get("source_commit") or "unknown"),
+        "HPC_APP_DATE": utc_timestamp(),
+    })
+
+
+def record_setup_release() -> None:
+    values = {"HPC_SETUP": read_setup_version(), "HPC_SETUP_DATE": utc_timestamp()}
+    # Golden images from before /etc/hpc-release existed (2026-10-22) have no HPC_GOLDEN.
+    existing = RELEASE_INFO_FILE.read_text(encoding="utf-8") if RELEASE_INFO_FILE.is_file() else ""
+    if not re.search(r"^HPC_GOLDEN=", existing, re.MULTILINE):
+        values["HPC_GOLDEN"] = "unknown"
+    update_release_info(values)
+
+
 def provision() -> None:
     source_dir = bundle_directory() / "bin"
     app_dir = Path(f"/home/{APP_USER}/hpc-hmi/bin")
@@ -481,12 +548,14 @@ def provision() -> None:
 
     ensure_user()
     install_application(source_dir, app_dir)
+    record_app_release(app_dir)
     configure_hostname()
     configure_hpc_port()
     configure_sudo_access()
     configure_touchscreen_udev()
     configure_boot(app_dir)
     configure_legacy_user_cleanup()
+    record_setup_release()
 
     marker_dir = Path("/var/lib/hpc-hmi")
     marker_dir.mkdir(parents=True, exist_ok=True)

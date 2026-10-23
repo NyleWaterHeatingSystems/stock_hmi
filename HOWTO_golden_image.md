@@ -496,7 +496,13 @@ sudo truncate -s 0 /etc/machine-id                       # systemd creates a new
 ls -l /var/lib/dbus/machine-id                           # should be a symlink to /etc/machine-id
 sudo rm -f /var/lib/NetworkManager/*.lease
 rm -f ~/kernel-change.sh
+echo "HPC_GOLDEN=$(date +%Y.%m.%d)" | sudo tee /etc/hpc-release   # the image's version, e.g. 2026.10.22
 ```
+
+`/etc/hpc-release` records what's installed on a unit. The golden image writes
+`HPC_GOLDEN`; provisioning adds the setup and app versions (see 2.2). The
+2026-10-22 image was built before this file existed, so units flashed from it
+show `HPC_GOLDEN=unknown`.
 
 Check the cleanup, then power off without leaving shell history behind:
 
@@ -504,6 +510,7 @@ Check the cleanup, then power off without leaving shell history behind:
 systemctl is-enabled regenerate_ssh_host_keys.service   # enabled
 ls /etc/ssh/ssh_host_* 2>&1                             # No such file or directory
 wc -c < /etc/machine-id                                 # 0
+cat /etc/hpc-release                                    # HPC_GOLDEN=<today's date>
 systemctl is-enabled ed-lte-daemon.service              # disabled
 ls -l /etc/NetworkManager/system-connections/           # only eth2-hpc.nmconnection, -rw------- root root
 ls -l /boot/firmware/userconf.txt                       # No such file (it held a password hash)
@@ -794,7 +801,11 @@ What the provisioner does, in order:
    (`multi-user.target`) and keeps SSH on;
 9. locks every login user except `nwhs` (on the golden image, that's `pi`) and
    **deletes them on the next boot**, along with their sudo rules;
-10. logs everything to `/var/log/hpc-stock-installer.log`, then reboots.
+10. records the installed versions in `/etc/hpc-release` (`HPC_APP`,
+    `HPC_APP_COMMIT` and `HPC_APP_DATE` after copying the app; `HPC_SETUP` and
+    `HPC_SETUP_DATE` at the end, plus `HPC_GOLDEN=unknown` if the golden image
+    didn't set it). Each step replaces only its own lines;
+11. logs everything to `/var/log/hpc-stock-installer.log`, then reboots.
 
 ### 2.3 Check the provisioned HMI
 
@@ -829,6 +840,7 @@ That's expected: provisioning doesn't change the keys.
 | Network profiles | `nmcli -f NAME,DEVICE con show --active` | `br0 br0`, `eth2-hpc eth2`, `lo lo`, `br0-port1 eth0`, `br0-port2 eth1` (the app creates the `br0` profiles) |
 | eth2 address | `nmcli -g ipv4.addresses con show eth2-hpc` | `192.168.0.1/24` with v2.0.8. TODO: confirm `192.168.0.4/24` with an app built with the `.4` change |
 | App files | `ls -l ~/hpc-hmi/bin/` | `assets/`, `HPC_LinuxGUI`, `release-manifest.json`, and `settings.txt`, which the app created when it first started |
+| Installed versions | `cat /etc/hpc-release` | TODO: not yet run on hardware. Expected with the 2026-10-22 image and app v2.0.8: `HPC_APP=v2.0.8`, `HPC_APP_COMMIT=e8e007c9…`, `HPC_SETUP=setup-v1.0.0`, `HPC_GOLDEN=unknown`, plus two dates |
 | Installer log | `sudo grep -iE 'error\|fail' /var/log/hpc-stock-installer.log` | Nothing from the successful run. The log keeps every run, so errors from earlier failed runs still show |
 
 ---
@@ -887,6 +899,8 @@ rotation, is in `dev_test/stock-hmi2.py` (see `dev_test/TODO.md`).
 | Record which labelled socket on the case is eth2 (`usb-0:3`) | [1.5](#fixed-address-on-the-hpc-port-eth2) |
 | Test the update path (3.2), including that `settings.txt` survives | [3.2](#32-technician-apply-the-kit-to-a-provisioned-hmi) |
 | Script the pre-capture cleanup | [1.5](#clean-up-before-capturing) |
-| Give `stock_hmi` a version (`VERSION` file, `setup-v1.0.0` tag) and record the golden, setup and app versions in `/etc/hpc-release` on each unit | `readme.md` |
+| Tag `setup-v1.0.0` once the `golden-image-usb-kit` branch is merged | `VERSION` |
+| Run the provisioner with `/etc/hpc-release` support on hardware and record the 2.3 output | [2.3](#23-check-the-provisioned-hmi) |
+| Later: refuse an app whose manifest `requires_setup` is newer than the unit's `HPC_SETUP` | `stock-hmi.py` |
 | Try the Windows "Internet Connection Sharing" fallback | [0](#fallback-the-laptop-as-a-dhcp-server) |
 | Build `HPC_HMI_Provissioning.pdf` from the updated `HPC_HMI_Provissioning.tex` (the old PDF described the desktop double-click process and was removed) | `HPC_HMI_Provissioning.tex` |
