@@ -104,13 +104,9 @@ def update_installer_payload():
     """
     installer_directory = application_directory()
     bin_directory = installer_directory / "bin"
-    settings_file = bin_directory / "settings.txt"
 
     if not bin_directory.is_dir():
         raise RuntimeError(f"Missing installer payload directory: {bin_directory}")
-
-    if not settings_file.is_file():
-        raise RuntimeError(f"Missing settings file: {settings_file}")
 
     with tempfile.TemporaryDirectory(prefix="hpc-release-") as temp_name:
         temp_directory = Path(temp_name)
@@ -188,7 +184,7 @@ def update_installer_payload():
         if staged_bin.exists():
             shutil.rmtree(staged_bin)
 
-        # Preserve settings.txt and any other installer-specific bin files.
+        # Preserve any installer-specific bin files.
         shutil.copytree(bin_directory, staged_bin)
 
         staged_assets = staged_bin / "assets"
@@ -370,6 +366,9 @@ def install_application(source_dir: Path, app_dir: Path) -> None:
                 command_path("rsync"),
                 "-a",
                 "--delete",
+                # The app creates settings.txt in its working directory (bin/);
+                # it is this unit's configuration, so never replace or delete it.
+                "--exclude=/settings.txt",
                 f"--chown={APP_USER}:{APP_USER}",
                 f"{source_dir}/",
                 f"{app_dir}/",

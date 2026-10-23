@@ -2,7 +2,7 @@
 """Assemble an offline provisioning kit (USB contents) for the HPC HMI.
 
 Runs on the maintainer's computer. Combines this repo's setup payload
-(stock-hmi.py, debs/, network/, settings.txt) with one HMI release from a
+(stock-hmi.py, debs/, network/) with one HMI release from a
 local hpc-releases checkout, verified against the release manifest.
 """
 
@@ -126,8 +126,7 @@ def write_checksums(output: Path) -> None:
 def build_kit(output: Path, releases: Path, release_name: str | None, replace: bool) -> None:
     release_directory = resolve_release(releases, release_name)
     manifest, release_binary = load_hmi_component(release_directory)
-    settings_file = PAYLOAD_DIRECTORY / "settings.txt"
-    for required in (REPO_DIRECTORY / "stock-hmi.py", settings_file,
+    for required in (REPO_DIRECTORY / "stock-hmi.py",
                      PAYLOAD_DIRECTORY / "debs", PAYLOAD_DIRECTORY / "network"):
         if not required.exists():
             raise RuntimeError(f"Missing setup payload: {required}")
@@ -142,7 +141,6 @@ def build_kit(output: Path, releases: Path, release_name: str | None, replace: b
     copy_tree(release_directory / "assets", bin_directory / "assets")
     shutil.copyfile(release_binary, bin_directory / "HPC_LinuxGUI")
     shutil.copyfile(release_directory / "manifest.json", bin_directory / "release-manifest.json")
-    shutil.copyfile(settings_file, bin_directory / "settings.txt")
 
     built = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     (output / "KIT.txt").write_text(

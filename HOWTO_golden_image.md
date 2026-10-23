@@ -570,7 +570,7 @@ kits from a clean, committed checkout. The kit:
 ```text
 USB/
 ├── stock-hmi.py
-├── bin/          # HPC_LinuxGUI, assets/, settings.txt, release-manifest.json
+├── bin/          # HPC_LinuxGUI, assets/, release-manifest.json
 ├── debs/         # offline .deb dependencies (iptables, libpaho-mqtt, ...)
 ├── network/      # eth2-hpc.nmconnection: eth2 = 192.168.0.4, re-applied on every run
 ├── KIT.txt       # the versions above
@@ -650,7 +650,10 @@ the app straight from `hpc-releases`.
 
 Re-running the provisioner is the update path. It re-syncs
 `/home/nwhs/hpc-hmi/bin/` from the USB with `rsync --delete`, so **any file on
-the HMI under that folder that is not on the USB is removed**. It rewrites the
+the HMI under that folder that is not on the USB is removed**. The one exception
+is `bin/settings.txt`: the app creates it on first run, it holds this unit's
+configuration, and the provisioner never replaces or deletes it (⏳ not yet
+verified on hardware). It rewrites the
 services and reboots.
 
 ```bash

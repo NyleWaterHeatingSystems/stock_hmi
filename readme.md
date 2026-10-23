@@ -13,8 +13,7 @@ stock_hmi/
 ├── make-usb-kit.py       # builds the provisioning USB on the maintainer's PC
 ├── BOOKWORM/             # setup payload for Debian 12 (Bookworm)
 │   ├── debs/             # offline .deb dependencies
-│   ├── network/          # eth2-hpc.nmconnection: HPC port eth2 = 192.168.0.4
-│   └── settings.txt      # default HMI settings, installed as bin/settings.txt
+│   └── network/          # eth2-hpc.nmconnection: HPC port eth2 = 192.168.0.4
 ├── golden_image/         # EDATEC install scripts used to build the golden image
 └── HOWTO_golden_image.md
 ```
@@ -37,7 +36,7 @@ checkout. It verifies the HMI binary against the release manifest, then writes:
 ```text
 USB/
 ├── stock-hmi.py
-├── bin/                  # HPC_LinuxGUI, assets/, settings.txt, release-manifest.json
+├── bin/                  # HPC_LinuxGUI, assets/, release-manifest.json
 ├── debs/
 ├── network/
 ├── KIT.txt               # release, stock_hmi commit and build time

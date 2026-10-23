@@ -196,6 +196,9 @@ def install_application(source_dir: Path, app_dir: Path) -> None:
                 command_path("rsync"),
                 "-a",
                 "--delete",
+                # The app creates settings.txt in its working directory (bin/);
+                # it is this unit's configuration, so never replace or delete it.
+                "--exclude=/settings.txt",
                 f"--chown={APP_USER}:{APP_USER}",
                 f"{source_dir}/",
                 f"{app_dir}/",
