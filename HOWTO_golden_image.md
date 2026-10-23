@@ -655,18 +655,35 @@ What `stock-hmi.py` does:
   on the next boot**, including their `/etc/sudoers.d` rules;
 - writes `/var/log/hpc-stock-installer.log`, then reboots.
 
-### 2.3 Verify ⏳
+### 2.3 Verify ✅ (with app v2.0.8; GUI and touch ⏳)
 
-- After the reboot, the panel shows the HPC GUI. Touch works.
-- `ssh nwhs@192.168.0.4` works. `pi` no longer exists (`getent passwd pi`
-  prints nothing).
-- `nmcli -f NAME,DEVICE con show --active` shows `eth2-hpc  eth2`.
-- `systemctl status hmi.service` is active.
-- Check `/var/log/hpc-stock-installer.log` for errors.
+Log in as `nwhs` (the provisioner deletes `pi` during the reboot). With an app
+build from `HPC_Firmware` branch `eth2-static-192.168.0.4` or later, eth2 stays
+at 192.168.0.4. **v2.0.8 and earlier move eth2 to 192.168.0.1** when the app
+starts. That's the address of many routers, so on the laptop turn Wi-Fi off
+and use a /24 profile instead of `hmi-eth2`:
 
-> Answered: the HMI program does recreate `eth2-hpc` on every start, with the
-> same name and (from `HPC_Firmware` branch `eth2-static-192.168.0.4`) the same
-> address. See 1.5.
+```bash
+nmcli radio wifi off
+nmcli con add type ethernet con-name hmi-eth2-wide ifname eno1 ipv4.method manual \
+  ipv4.addresses 192.168.0.100/24 ipv4.never-default yes ipv6.method link-local
+nmcli con up hmi-eth2-wide
+ssh nwhs@192.168.0.1          # afterwards: nmcli con down hmi-eth2-wide; nmcli radio wifi on
+```
+
+SSH reports the same host key as before provisioning, now under a new address.
+That's expected.
+
+| Check | Command (as `nwhs`) | Expected (first run, app v2.0.8) |
+| --- | --- | --- |
+| Panel | look at it | ⏳ HPC GUI shown, touch works |
+| Hostname | `hostname` | `hpc` |
+| `pi` removed | `getent passwd pi \|\| echo "pi removed"` | `pi removed` |
+| App running | `systemctl --no-pager status hmi.service \| head -5` | `Active: active (running)`, since boot |
+| Network profiles | `nmcli -f NAME,DEVICE con show --active` | `br0 br0`, `eth2-hpc eth2`, `lo lo`, `br0-port1 eth0`, `br0-port2 eth1` (the app creates the br0 profiles) |
+| eth2 address | `nmcli -g ipv4.addresses con show eth2-hpc` | `192.168.0.1/24` with v2.0.8; `192.168.0.4/24` with the fixed app ⏳ |
+| App files | `ls -l ~/hpc-hmi/bin/` | `assets/`, `HPC_LinuxGUI`, `release-manifest.json`, and `settings.txt`, which the app created on its first start |
+| Installer log | `sudo grep -iE 'error\|fail' /var/log/hpc-stock-installer.log` | Nothing from the successful run. The log is appended to, so earlier failed runs still show. |
 
 ---
 
