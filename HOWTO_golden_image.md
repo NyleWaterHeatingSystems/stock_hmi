@@ -580,7 +580,7 @@ USB/
 The golden image and the `rpiboot-msd-cm4/` loader folder are only needed for
 flashing (1.7). Copy them to the stick by hand if the technician will flash too.
 
-### 2.2 Run the provisioner ⏳
+### 2.2 Run the provisioner ✅
 
 The golden image is Lite, so there is no desktop, no USB auto-mount and no
 double-click. The technician works over SSH:
@@ -602,6 +602,39 @@ cat KIT.txt                             # the release you expect?
 sha256sum -c --quiet SHA256SUMS && echo KIT OK   # silent per-file, then KIT OK
 sudo python3 ./stock-hmi.py             # or: sudo ./stock-hmi
 ```
+
+It takes about 15 s and ends by rebooting, which drops the SSH session.
+Observed on the first run (kit `92c9508`, app v2.0.8), abridged:
+
+```
+Installing runtime packages
+Setting up libip6tc2:arm64 (1.8.9-2) ...
+Setting up libpaho-mqtt1.3:arm64 (1.3.12-1) ...
+Setting up iptables (1.8.9-2) ...
+Running: useradd --create-home --user-group --shell /bin/bash nwhs
+Running: /usr/bin/rsync -a --delete --exclude=/settings.txt --chown=nwhs:nwhs /mnt/bin/ /home/nwhs/hpc-hmi/bin/
+ldd output:
+    libpaho-mqtt3a.so.1 => /lib/aarch64-linux-gnu/libpaho-mqtt3a.so.1
+    libudev.so.1 => /lib/aarch64-linux-gnu/libudev.so.1
+    ...
+/etc/sudoers.d/nwhs-hpc: parsed OK
+Created symlink /etc/systemd/system/multi-user.target.wants/hmi.service → /etc/systemd/system/hmi.service.
+Running: usermod --lock pi
+Legacy users to remove on reboot: pi
+Provisioning completed successfully
+The system will reboot in five seconds
+Connection to 192.168.0.4 closed by remote host.
+```
+
+Harmless lines: `usermod: no changes`, and `Failed to disable unit: Unit file
+display-manager.service does not exist` (Lite has no desktop).
+
+If it stops at `Installing runtime packages` with `dpkg: dependency problems`,
+a bundled .deb needs packages that aren't on the golden image. Nothing else has
+been changed at that point. Remove the half-installed package with
+`sudo dpkg --purge <name>` (check with `sudo dpkg --audit`, which should print
+nothing), fix `BOOKWORM/debs/`, rebuild the kit and re-run. That's how
+`libx11-dev`, a build-only dependency, was found and removed.
 
 What `stock-hmi.py` does:
 
