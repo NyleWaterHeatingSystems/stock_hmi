@@ -472,9 +472,21 @@ first build is `hpc-golden-2026-10-22.img`.
    - Pi OS release: `2026-10-06-raspios-bookworm-arm64-lite` ✅
    - kernel: `6.6.31-rpi-v8` (EDATEC `ed-linux-image-6.6.31-v8`, held) ✅
    - temporary user: `pi` (password in the team password store) ✅
-   - EDATEC package versions (`dpkg -l 'ed-*'`) ⏳ collect on the first flashed HMI (1.7)
+   - EDATEC packages (`dpkg -l 'ed-*'`, read on the first flashed HMI) ✅:
 
-### 1.7 Flash the golden image onto an HMI ⏳
+     | Package | Version |
+     | --- | --- |
+     | `ed-base-bsp-v8` | 2:1.20260508.1 |
+     | `ed-hmi2220-070c-firmware` | 1.20241204.1 |
+     | `ed-linux-image-6.6.31-v8` | 2:1.20250716.1 |
+     | `ed-lvd` | 1.20260522.1 |
+     | `ed-qmi-tool` | 2.0.4 |
+     | `ed-reboot` | 1.20250704.1 |
+     | `ed-rtc` | 1.20250620.1 |
+     | `ed-touchscreen-test` | 1.20250731.1 |
+     | `ed-usb-tools` | 1.20250912 |
+
+### 1.7 Flash the golden image onto an HMI ✅
 
 Done by the technician, offline.
 
@@ -507,17 +519,17 @@ Done by the technician, offline.
 4. Power off the HMI, unplug the Micro USB cable, connect Ethernet, and power on.
    The panel should show the console within about 30 s. First boot expands the
    filesystem.
-5. Verify from the laptop on the eth2 socket ([normal method](#normal-method-the-hpc-port-eth2-at-19216804)) ⏳:
+5. Verify from the laptop on the eth2 socket ([normal method](#normal-method-the-hpc-port-eth2-at-19216804)) ✅:
 
-   | Check | Command | Expected |
+   | Check | Command | Expected (first flash) |
    | --- | --- | --- |
-   | Reachable, new host key | `ssh-keygen -R 192.168.0.4; ssh pi@192.168.0.4` | ⏳ prompts for a new fingerprint |
-   | Filesystem expanded | `df -h /` | ⏳ ~29G size (not ~3G) |
-   | Unique machine ID | `cat /etc/machine-id` | ⏳ 32 hex chars, differs per HMI |
-   | Kernel | `uname -r` | ⏳ `6.6.31-rpi-v8` |
-   | Display | `cat /proc/fb` | ⏳ `0 vc4drmfb` |
-   | eth2 profile | `nmcli -f NAME,DEVICE con show --active` | ⏳ `eth2-hpc  eth2` |
-   | EDATEC versions for 1.6 notes | `dpkg -l 'ed-*'` | ⏳ record them |
+   | Reachable, new host key | `ssh-keygen -R 192.168.0.4; ssh pi@192.168.0.4` | Logs in as `pi@raspberrypi` (fingerprint prompt ⏳ not yet recorded) |
+   | Filesystem expanded | `df -h /` | `/dev/mmcblk0p2   29G  2.1G   25G   8% /` |
+   | Unique machine ID | `cat /etc/machine-id` | 32 hex chars, new on each HMI (first flash: `fca65ad5…3517`) |
+   | Kernel | `uname -r` | `6.6.31-rpi-v8` |
+   | Display | `cat /proc/fb` | `0 vc4drmfb` |
+   | eth2 profile | `nmcli -f NAME,DEVICE con show --active` | `eth2-hpc  eth2` and `lo  lo` |
+   | EDATEC versions for 1.6 notes | `dpkg -l 'ed-*'` | 9 packages, all `ii`; versions in 1.6 step 5 |
 
    If `df` still shows ~3G, PiShrink's `/etc/rc.local` didn't run; expand by
    hand with `sudo raspi-config nonint do_expand_rootfs && sudo reboot`.
