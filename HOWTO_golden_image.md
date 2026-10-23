@@ -495,7 +495,15 @@ Done by the technician, offline.
    `conv=fsync` waits while it drains to the eMMC at only about 5 MB/s, which
    takes roughly 10 minutes. Watch it drain with
    `watch -n5 grep -e Dirty -e Writeback: /proc/meminfo`. Don't unplug until
-   the prompt returns.
+   the prompt returns. Observed on the first flash:
+   ```
+   0+118057 records in
+   0+118057 records out
+   3926258176 bytes (3.9 GB, 3.7 GiB) copied, 743.663 s, 5.3 MB/s
+   ```
+   The byte count must be `3926258176` for this image. `0+N records` is normal
+   when reading from a pipe: every read was a partial block, and dd writes
+   exactly what it reads.
 4. Power off the HMI, unplug the Micro USB cable, connect Ethernet, and power on.
    The panel should show the console within about 30 s. First boot expands the
    filesystem.
