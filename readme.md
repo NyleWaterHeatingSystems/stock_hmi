@@ -5,6 +5,21 @@ HMI. Fully offline: the technician needs a laptop, an Ethernet cable and the
 provisioning USB. Step-by-step instructions, with expected output for every
 check, are in [HOWTO_golden_image.md](HOWTO_golden_image.md).
 
+## Current state (2026-10-23)
+
+- The golden image `hpc-golden-2026-10-22.img.xz` (Bookworm Lite, EDATEC
+  kernel 6.6.31, login `pi` / `raspberry`) has been built, flashed and
+  provisioned on real hardware with app v2.0.8.
+- It's stored in Google Drive for now:
+  [folder](https://drive.google.com/drive/folders/1tibp_miz9kWSzZj1l7MBG5oEfH0VU8Kn?usp=drive_link),
+  [image](https://drive.google.com/file/d/1WYvcbQXtD-RB6T1y32ddFpm1zrGR32Wt/view?usp=drive_link).
+  This location may move. TODO: create a formal storage place for images.
+- Remaining work is listed under "Open items" at the end of the HOWTO. The most
+  important: no released app keeps eth2 at `192.168.0.4` yet (v2.0.8 moves it to
+  `192.168.0.1`), and the update path has not been tested on hardware.
+- This repo works together with `hpc-releases` (app releases, checked out next
+  to this repo) and `HPC_Firmware` (app source).
+
 ## Repository layout
 
 ```text
