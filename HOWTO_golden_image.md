@@ -136,6 +136,9 @@ gets a `192.168.137.x` address. ⏳
 4. After about 10 s, run `lsblk -o NAME,SIZE,TRAN,MODEL,SERIAL`. The eMMC shows as
    a ~29.1G USB disk, model `RPi-MSD- 0001`, with a serial matching the CM4.
    **Unplug other USB drives first.** A 29.1G thumbdrive looks nearly identical.
+5. `rpiboot` exits by itself once it has sent the loader. That's normal: the
+   eMMC stays exposed until the HMI is powered off, so there's nothing to stop
+   afterwards.
 
 ---
 
@@ -189,7 +192,7 @@ cd ~ && sync && udisksctl unmount -b /dev/sdX1
 - Pi OS gives this user passwordless sudo. `stock-hmi.py` needs that.
 - Store the temporary password in the team password store, not in this repo.
 
-Exit `rpiboot`, **unplug the Micro USB cable** (or the HMI re-enters USB-boot),
+Power off the HMI, **unplug the Micro USB cable** (or the HMI re-enters USB-boot),
 connect Ethernet, and power-cycle. First boot expands the filesystem and reboots
 once. Then `ssh pi@<ip>` ([networking above](#direct-cable-networking-laptop--hmi-no-wi-fi-no-router)).
 
@@ -487,7 +490,13 @@ Done by the technician, offline.
    ```bash
    xzcat hpc-golden-2026-10-22.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
    ```
-4. Exit `rpiboot`, unplug the Micro USB cable, connect Ethernet, and power on.
+   The progress line jumps to ~3.9 GB within seconds, then appears to hang with
+   no prompt. That's expected: the data went into the laptop's write cache, and
+   `conv=fsync` waits while it drains to the eMMC at only about 5 MB/s, which
+   takes roughly 10 minutes. Watch it drain with
+   `watch -n5 grep -e Dirty -e Writeback: /proc/meminfo`. Don't unplug until
+   the prompt returns.
+4. Power off the HMI, unplug the Micro USB cable, connect Ethernet, and power on.
    The panel should show the console within about 30 s. First boot expands the
    filesystem.
 5. Verify from the laptop on the eth2 socket ([normal method](#normal-method-the-hpc-port-eth2-at-19216804)) ⏳:
