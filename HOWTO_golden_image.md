@@ -7,6 +7,27 @@ HMI into a working HPC HMI, and how to update one. Every check shows the command
 to run and the output seen on real hardware, so you can tell whether a step
 worked.
 
+## How to read this guide
+
+The numbered steps are the procedure. Everything else is in block quotes,
+labelled by what it's for:
+
+> **Tip:** optional. Saves time or avoids a mistake, but the procedure works without it.
+
+> **Note:** background: why a step is done this way, or what it does.
+
+> **If it fails:** a problem seen while writing this guide, and how to fix it.
+
+> **First build:** output recorded on real hardware, to compare against.
+
+Every command block starts with `# on the laptop` or `# on the HMI`, saying
+where to run it. "On the HMI" means in an SSH session from the laptop, unless
+the step says otherwise. In tables, the column header says where the commands
+run.
+
+Steps that have not yet been run on real hardware are marked **TODO**. The full
+list of open items is in [Open items](#open-items) at the end.
+
 ## How the pieces fit together
 
 The HMI's software is built in three layers. Each layer changes at its own pace
@@ -39,19 +60,17 @@ configuration.
 | [2. Provisioning an HMI](#2-provisioning-an-hmi-from-the-golden-image) | Maintainer | **Offline**: laptop, Ethernet cable and USB |
 | [3. Updating the HMI software](#3-updating-the-hmi-software) | Maintainer builds the USB; technician applies it in the field | Internet for the maintainer only |
 
-Steps that have not yet been run on real hardware are marked **TODO**. The full
-list of open items is in [Open items](#open-items) at the end.
-
 ---
 
 ## 0. Background and laptop setup
 
 ### Hardware facts
 
-- `cat /proc/device-tree/model` prints `Raspberry Pi Compute Module 4 Rev 1.1`.
-- The OS lives on **eMMC**: flash memory soldered to the board. There is no SD
-  card to remove. You can tell it's eMMC because `lsblk` lists `mmcblk0boot0`
-  and `mmcblk0boot1`.
+- The HMI is a Raspberry Pi Compute Module 4. On the HMI,
+  `cat /proc/device-tree/model` prints `Raspberry Pi Compute Module 4 Rev 1.1`.
+- The HMI's OS lives on **eMMC**: flash memory soldered to the board. There is
+  no SD card to remove. You can tell it's eMMC because `lsblk`, run on the HMI,
+  lists `mmcblk0boot0` and `mmcblk0boot1`.
 - To write the eMMC from a PC, the CM4 is put into **USB-boot mode**. A tool
   called `rpiboot` then makes the eMMC appear on the PC as an ordinary USB disk.
   This HMI has **no boot switch or jumper**. If its Micro USB port is connected
@@ -62,10 +81,11 @@ list of open items is in [Open items](#open-items) at the end.
 
 ### Install the laptop tools
 
-These commands are for Arch Linux. On another distribution, install the same
-programs with its package manager.
+The laptop must run Linux. These commands are for Arch Linux; on another
+distribution, install the same programs with its package manager.
 
 ```bash
+# on the laptop
 sudo pacman -S rpi-imager dnsmasq
 yay -S rpiusbboot            # AUR package; builds github.com/raspberrypi/usbboot and installs `rpiboot`
 yay -S pishrink-git          # only needed to capture a new golden image (1.6)
@@ -74,11 +94,10 @@ yay -S pishrink-git          # only needed to capture a new golden image (1.6)
 ### Download the rpiboot loader for the CM4
 
 `rpiboot` sends the CM4 a small "loader" program that exposes the eMMC over USB.
-The loader in the current `usbboot` release (`mass-storage-gadget64`) starts the
-CM4, but **the eMMC never appears** on this HMI, and the current `msd` folder has
-no CM4 files. Use the older loader from release `20221215-105525` instead:
+Download the loader from `usbboot` release `20221215-105525` onto the laptop:
 
 ```bash
+# on the laptop
 mkdir -p ~/rpiboot-msd-cm4 && cd ~/rpiboot-msd-cm4
 base=https://raw.githubusercontent.com/raspberrypi/usbboot/20221215-105525
 curl -fsSLO $base/msd/bootcode.bin
@@ -89,16 +108,55 @@ curl -fsSLo bootcode4.bin $base/bootcode4.bin
 ls -la
 ```
 
-**Check:** `bootcode4.bin` must be 106008 bytes. If it is 16 bytes, you
-downloaded the symlink instead of the file; repeat the last `curl`.
+**Check:** `bootcode4.bin` must be 106008 bytes.
 
-Keep a copy of this folder with the golden image, so an HMI can be flashed
-without internet.
+> **If it fails:** if `bootcode4.bin` is 16 bytes, you downloaded the symlink
+> instead of the file. Repeat the last `curl`.
+
+> **Note:** don't use a newer release. The loader in the latest `usbboot`
+> release as of 2026-10 (`mass-storage-gadget64`) starts the CM4, but the eMMC never appears
+> on this HMI, and the current `msd` folder has no CM4 files.
+
+> **Tip:** keep a copy of this folder with the golden image, so an HMI can be
+> flashed without internet.
+
+### Procedure: expose the eMMC on the laptop
+
+Sections 1.1, 1.6 and 1.7 all start by making the HMI's eMMC appear on the
+laptop as a USB disk:
+
+1. Connect a Micro USB to USB-A data cable from the HMI's Micro USB port to the
+   laptop. Keep the HMI's normal power on its DC 2-pin Phoenix terminal.
+2. Start the loader on the laptop and leave it waiting:
+   ```bash
+   # on the laptop
+   sudo rpiboot -v -d ~/rpiboot-msd-cm4
+   ```
+3. Power-cycle the HMI at the DC terminal. `rpiboot` sends the loader and exits.
+4. After about 10 s, run `lsblk -o NAME,SIZE,TRAN,MODEL,SERIAL` on the laptop.
+   The eMMC is a 29.1G USB disk with model `RPi-MSD- 0001` and the CM4's serial
+   number. In the following steps, `/dev/sdX` stands for that disk; replace it
+   with its real name, such as `/dev/sdb`.
+
+When you're finished, power off the HMI and **unplug the Micro USB cable**.
+If the cable is still connected at the next power-on, the HMI goes back into
+USB-boot mode instead of starting normally.
+
+> **Tip:** unplug other USB drives from the laptop first. A 29.1G thumbdrive
+> looks almost identical to the eMMC, and writing to the wrong disk destroys its
+> contents.
+
+> **Note:** start `rpiboot` before powering the HMI on: the HMI only checks for
+> USB boot at power-on. `rpiboot` exiting by itself is normal; the eMMC stays
+> exposed until the HMI is powered off.
+
+> **If it fails:** if nothing happens, try another cable. Some Micro USB cables
+> carry power only.
 
 ### Connect the laptop to the HMI with a cable
 
-The laptop talks to the HMI over a direct Ethernet cable. No router, Wi-Fi or
-internet is needed.
+After flashing, with the Micro USB cable unplugged, the laptop talks to the HMI
+over a direct Ethernet cable. No router, Wi-Fi or internet is needed.
 
 #### Normal method: the HPC port (eth2) at 192.168.0.4
 
@@ -109,101 +167,89 @@ controller itself is `192.168.0.2`.) To connect:
 1. Plug the laptop into the HMI's eth2 socket. In the field, unplug the
    controller's cable from that socket first, or put a small switch between
    them.
-2. Give the laptop the address `192.168.0.100`. On a Linux laptop with
-   NetworkManager (`eno1` is the laptop's Ethernet port; list yours with
-   `ip -br link`):
-   ```bash
-   nmcli con add type ethernet ifname eno1 con-name hmi-eth2 \
-     ipv4.method manual ipv4.addresses 192.168.0.100/24 ipv6.method link-local
-   nmcli con up hmi-eth2
-   ```
+2. Give the laptop's Ethernet port a manual IPv4 address of `192.168.0.100`,
+   netmask `255.255.255.0`, no gateway. Use your desktop's network settings, or
+   the saved profile in the tip below. Never give the laptop `.4` (the HMI) or
+   `.2` (the controller).
 3. Log in:
    ```bash
+   # on the laptop
    ssh pi@192.168.0.4          # a freshly flashed golden image
    ssh nwhs@192.168.0.4        # a provisioned HMI
    ```
 
-Never give the laptop `.4` (the HMI) or `.2` (the controller).
+> **Tip:** on a Linux laptop with NetworkManager, save the address as a profile
+> once, then bring it up with one command each time. `eno1` is the laptop's
+> Ethernet port; list yours with `ip -br link`. Use your port's name wherever
+> this guide says `eno1`.
+> ```bash
+> # on the laptop
+> nmcli con add type ethernet ifname eno1 con-name hmi-eth2 \
+>   ipv4.method manual ipv4.addresses 192.168.0.100/24 ipv6.method link-local
+> nmcli con up hmi-eth2        # each time you connect
+> ```
 
-**If your laptop is also on a `192.168.0.x` Wi-Fi network** (common for
-development PCs; the first build's PC had its router at `.1`), the laptop
-already sends all of `192.168.0.x` to Wi-Fi. Send only the HMI's address down
-the cable with a host route, and Wi-Fi keeps working:
+> **If it fails:** if your laptop is also on a `192.168.0.x` Wi-Fi network
+> (common for development PCs; the first build's PC had its router at `.1`), the
+> laptop already sends all of `192.168.0.x` to Wi-Fi. Send only the HMI's
+> address down the cable with a host route, and Wi-Fi keeps working:
+> ```bash
+> # on the laptop
+> nmcli con modify hmi-eth2 ipv4.addresses 192.168.0.100/32 ipv4.routes "192.168.0.4/32"
+> nmcli con up hmi-eth2
+> ```
 
-```bash
-nmcli con modify hmi-eth2 ipv4.addresses 192.168.0.100/32 ipv4.routes "192.168.0.4/32"
-nmcli con up hmi-eth2
-```
+> **Note:** this is also why the HMI's eth2 moved from `192.168.0.1` to
+> `192.168.0.4`: a host route for `.1` would also capture the laptop's Wi-Fi
+> router if it is at `.1`.
 
-This is also why the HMI's eth2 moved from `.1` to `.4`: a route for `.1` would
-capture the router as well.
-
-Which socket is eth2? It's the USB network chip on USB path `usb-0:3`; see the
-port table in [1.5](#fixed-address-on-the-hpc-port-eth2).
-TODO: record which labelled socket on the case that is.
+> **Note:** eth2 is the USB network chip on USB path `usb-0:3`; see the port
+> table in [1.5](#fixed-address-on-the-hpc-port-eth2). TODO: record which
+> labelled socket on the case that is.
 
 #### Fallback: the laptop as a DHCP server
 
 Use this for a stock Raspberry Pi OS image (which has no fixed address) or when
 you can't use eth2. A stock image asks for an address by DHCP on every port, and
-on a direct cable nothing answers unless the laptop does. A NetworkManager
-**shared** profile makes the laptop a DHCP server. It doesn't need internet, but
-if the laptop has internet, the HMI gets it too, which section 1.3 relies on.
+on a direct cable nothing answers unless the laptop does.
 
-```bash
-sudo ip addr flush dev eno1          # only if you added an address to eno1 by hand earlier
-nmcli con add type ethernet ifname eno1 con-name hmi-direct \
-  ipv4.method shared ipv4.addresses 192.168.1.200/24 \
-  ipv6.method link-local
-nmcli con up hmi-direct
-```
-
-After the HMI boots, find the address it was given and log in:
-
-```bash
-cat /var/lib/NetworkManager/dnsmasq-eno1.leases   # look for "raspberrypi" or "hpc"
-ssh pi@192.168.1.<x>
-```
-
-If the HMI has no IPv4 address at all, use IPv6 link-local addresses, which
-every device creates for itself:
-
-```bash
-ping -6 -c3 ff02::1%eno1                  # every device on the cable replies with its fe80:: address
-ssh pi@fe80::xxxx:xxxx:xxxx:xxxx%eno1
-```
-
-Don't rely on `.local` names such as `raspberrypi.local`. They only work if the
-laptop runs mDNS (avahi and `nss-mdns`).
-
-On Windows, "Internet Connection Sharing" does the same job, and the HMI gets a
-`192.168.137.x` address. TODO: not yet tried.
-
-### Procedure: expose the eMMC on the laptop
-
-Sections 1.1, 1.6 and 1.7 all start by making the HMI's eMMC appear on the
-laptop as a USB disk:
-
-1. Unplug other USB drives from the laptop. A 29.1G thumbdrive looks almost
-   identical to the eMMC, and writing to the wrong disk destroys its contents.
-2. Connect a **data-capable** Micro USB to USB-A cable from the HMI's Micro USB
-   port to the laptop. (Some cables carry power only.) Keep the HMI's normal
-   power on its DC 2-pin Phoenix terminal.
-3. Start the loader **first** and leave it waiting:
+1. Plug the laptop into any of the HMI's Ethernet sockets.
+2. Make the laptop a DHCP server on its Ethernet port. With NetworkManager, set
+   the wired connection's IPv4 method to **Shared to other computers**, or use
+   the command in the tip below. This doesn't need internet, but if the laptop
+   has internet, the HMI gets it too, which section 1.3 relies on.
+3. After the HMI boots, find the address it was given and log in:
    ```bash
-   sudo rpiboot -v -d ~/rpiboot-msd-cm4
+   # on the laptop
+   cat /var/lib/NetworkManager/dnsmasq-eno1.leases   # look for "raspberrypi" or "hpc"
+   ssh pi@192.168.1.<x>
    ```
-4. Power-cycle the HMI at the DC terminal. It only checks for USB boot at
-   power-on.
-5. `rpiboot` sends the loader and exits by itself. That's normal: the eMMC
-   stays exposed until the HMI is powered off.
-6. After about 10 s, run `lsblk -o NAME,SIZE,TRAN,MODEL,SERIAL`. The eMMC is a
-   29.1G USB disk with model `RPi-MSD- 0001` and the CM4's serial number. Use
-   its name (`/dev/sdX` below) in the following steps.
 
-When you're finished, power off the HMI and **unplug the Micro USB cable**.
-If the cable is still connected at the next power-on, the HMI goes back into
-USB-boot mode instead of starting normally.
+> **Tip:** as a saved NetworkManager profile:
+> ```bash
+> # on the laptop
+> nmcli con add type ethernet ifname eno1 con-name hmi-direct \
+>   ipv4.method shared ipv4.addresses 192.168.1.200/24 \
+>   ipv6.method link-local
+> nmcli con up hmi-direct      # each time you connect
+> ```
+
+> **If it fails:** if you added an address to the laptop's `eno1` by hand
+> earlier, clear it first with `sudo ip addr flush dev eno1` on the laptop.
+
+> **If it fails:** if the HMI has no IPv4 address at all, use IPv6 link-local
+> addresses, which every device creates for itself:
+> ```bash
+> # on the laptop
+> ping -6 -c3 ff02::1%eno1                  # every device on the cable replies with its fe80:: address
+> ssh pi@fe80::xxxx:xxxx:xxxx:xxxx%eno1
+> ```
+
+> **Note:** don't rely on `.local` names such as `raspberrypi.local`. They only
+> work if the laptop runs mDNS (avahi and `nss-mdns`).
+
+> **Note:** on Windows, "Internet Connection Sharing" does the same job, and the
+> HMI gets a `192.168.137.x` address. TODO: not yet tried.
 
 ---
 
@@ -219,127 +265,138 @@ Most people don't need this section. Use the existing image from
 [1.7](#17-flash-the-golden-image-onto-an-hmi). Rebuild the image only when the
 OS or EDATEC drivers need updating.
 
-Why Bookworm Lite:
-- `HPC_LinuxGUI` is built against Bookworm's C library (see `readme.md`).
-- EDATEC's Trixie (Debian 13) support is incomplete.
-- The HMI program draws straight to the framebuffer, so no desktop is needed.
+> **Note:** why Bookworm Lite:
+> - `HPC_LinuxGUI` is built against Bookworm's C library (see `readme.md`).
+> - EDATEC's Trixie (Debian 13) support is incomplete.
+> - The HMI program draws straight to the framebuffer, so no desktop is needed.
 
 ### 1.1 Write Bookworm Lite to the eMMC
 
 1. Download the image and check its checksum. The 2026-10-06 release was used
    for the first build:
    ```bash
+   # on the laptop
    mkdir -p ~/Downloads/pi-images && cd ~/Downloads/pi-images
    B=https://downloads.raspberrypi.com/raspios_oldstable_lite_arm64/images/raspios_oldstable_lite_arm64-2026-10-06/2026-10-06-raspios-bookworm-arm64-lite
    curl -fsSLO $B.img.xz.sha256 && curl -fsSLO $B.img.xz
    sha256sum -c 2026-10-06-raspios-bookworm-arm64-lite.img.xz.sha256
    ```
-   The last command must print `OK`. Other releases are listed at
-   <https://downloads.raspberrypi.com/>; `raspios_oldstable_*` is Bookworm
-   (Legacy).
+   The last command must print `OK`.
 2. Expose the eMMC ([procedure above](#procedure-expose-the-emmc-on-the-laptop)).
-3. Run `sudo rpi-imager` and choose Device **Raspberry Pi 4**, OS **Use custom**
+3. On the laptop, run `sudo rpi-imager` and choose Device **Raspberry Pi 4**, OS **Use custom**
    (then the `.img.xz`), and Storage **the `RPi-MSD- 0001` disk**. Click Write.
-   - Imager 2.x **doesn't offer OS customisation (user, SSH) for custom images**.
-     Its log shows `initFormat= ""`. That's expected; step 1.2 does the same job
-     by hand.
-   - If the first write fails with an async write error, write again. A
-     successful write ends with matching `Hash of uncompressed image` and
-     `Verify hash` lines.
+   A successful write ends with matching `Hash of uncompressed image` and
+   `Verify hash` lines.
+
+> **Note:** other releases are listed at <https://downloads.raspberrypi.com/>;
+> `raspios_oldstable_*` is Bookworm (Legacy).
+
+> **Note:** Imager 2.x doesn't offer OS customisation (user, SSH) for custom
+> images. Its log shows `initFormat= ""`. That's expected; step 1.2 does the
+> same job by hand.
+
+> **If it fails:** if the first write fails with an async write error, write
+> again.
 
 ### 1.2 Add the `pi` user and turn on SSH
 
-Raspberry Pi OS reads two files from its boot partition on first boot: `ssh`
-turns on the SSH server, and `userconf.txt` creates a user. Imager ejects the
-disk when it finishes, so expose it again if needed, then:
+1. Mount the eMMC's boot partition and create the two first-boot files. Imager
+   ejects the disk when it finishes, so expose it again if needed.
+   ```bash
+   # on the laptop
+   udisksctl mount -b /dev/sdX1                  # the eMMC's boot partition ("bootfs")
+   cd /run/media/$USER/bootfs                    # check that config.txt and cmdline.txt are here
+   touch ssh
+   echo "pi:$(openssl passwd -6)" > userconf.txt # type the password (raspberry) when prompted
+   cd ~ && sync && udisksctl unmount -b /dev/sdX1
+   ```
+2. Power off the HMI and **unplug the Micro USB cable**.
+3. Connect Ethernet using the
+   [DHCP fallback](#fallback-the-laptop-as-a-dhcp-server), power on the HMI,
+   and log in from the laptop with `ssh pi@<ip>`, using the address from the
+   fallback's lease file.
 
-```bash
-udisksctl mount -b /dev/sdX1                  # the eMMC's boot partition ("bootfs")
-cd /run/media/$USER/bootfs                    # check that config.txt and cmdline.txt are here
-touch ssh
-echo "pi:$(openssl passwd -6)" > userconf.txt # type the password when prompted
-cd ~ && sync && udisksctl unmount -b /dev/sdX1
-```
+> **Note:** Raspberry Pi OS reads two files from its boot partition on first
+> boot: `ssh` turns on the SSH server, and `userconf.txt` creates a user. That
+> user gets passwordless sudo, which the provisioner needs.
 
-- The golden image uses **`pi` / `raspberry`**, the old Raspberry Pi default,
-  on purpose. The golden image is only for development and as a starting point,
-  and the provisioner deletes every login user except `nwhs`, so `pi` never
-  reaches the field. When you log in, the HMI warns that the default password
-  hasn't been changed; that's expected.
-- Raspberry Pi OS gives this user passwordless sudo, which the provisioner
-  needs.
+> **Note:** the golden image uses `pi` / `raspberry`, the old Raspberry Pi
+> default, on purpose. The golden image is only for development and as a
+> starting point, and the provisioner deletes every login user except `nwhs`, so
+> `pi` never reaches the field. When you log in, the HMI warns that the default
+> password hasn't been changed; that's expected.
 
-Power off the HMI, **unplug the Micro USB cable**, connect Ethernet using the
-[DHCP fallback](#fallback-the-laptop-as-a-dhcp-server), and power on. The first
-boot expands the filesystem and reboots once. Then log in with `ssh pi@<ip>`.
+> **Note:** the first boot expands the filesystem and reboots once before SSH
+> becomes reachable.
 
 ### 1.3 Install EDATEC's drivers and kernel
 
-The HMI needs internet for this step only. With the `hmi-direct` profile, the
-laptop shares its own connection. Copies of EDATEC's scripts are kept in
-[`golden_image/`](golden_image/) in case their URLs change.
+The HMI needs internet for this step only; the DHCP fallback shares the
+laptop's connection.
 
-```bash
-# on the HMI
-curl -s https://apt.edatec.cn/bsp/ed-install.sh | sudo bash -s hmi2220-070c
-```
+1. Run EDATEC's installer. It reboots the HMI when it finishes.
+   ```bash
+   # on the HMI
+   curl -s https://apt.edatec.cn/bsp/ed-install.sh | sudo bash -s hmi2220-070c
+   ```
+2. After the reboot, log in again and check that the EDATEC kernel is running:
+   on the HMI, `uname -r` must print `6.6.31-rpi-v8`. Section 1.4 checks the rest.
 
-According to [`golden_image/hmi2220-070c.json`](golden_image/hmi2220-070c.json),
-this:
-1. adds EDATEC's apt repository and installs `ed-linux-image-6.6.31-v8`,
-   `ed-hmi2220-070c-firmware`, `ed-base-bsp-v8`, `ed-touchscreen-test`,
-   `ed-reboot`, `ed-rtc`, `ed-qmi-tool`, `ed-usb-tools` and `ed-lvd`;
-2. runs `kernel-change.sh 6.6.31-rpi-v8`, which copies EDATEC's kernel,
-   initramfs, device trees and overlays into `/boot/firmware` and pins them in
-   `/etc/default/raspi-firmware`;
-3. puts every `linux-image*` package on hold, so an upgrade can't replace the
-   kernel, and reboots.
+> **Note:** according to
+> [`golden_image/hmi2220-070c.json`](golden_image/hmi2220-070c.json), the
+> installer:
+> 1. adds EDATEC's apt repository and installs `ed-linux-image-6.6.31-v8`,
+>    `ed-hmi2220-070c-firmware`, `ed-base-bsp-v8`, `ed-touchscreen-test`,
+>    `ed-reboot`, `ed-rtc`, `ed-qmi-tool`, `ed-usb-tools` and `ed-lvd`;
+> 2. runs `kernel-change.sh 6.6.31-rpi-v8`, which copies EDATEC's kernel,
+>    initramfs, device trees and overlays into `/boot/firmware` and pins them in
+>    `/etc/default/raspi-firmware`;
+> 3. puts every `linux-image*` package on hold, so an upgrade can't replace the
+>    kernel, and reboots.
+>
+> Copies of EDATEC's scripts are kept in [`golden_image/`](golden_image/) in
+> case their URLs change.
 
-**Known failure (it happened on the first build):** step 2 can silently do
-nothing. `ed-install.sh` downloads `kernel-change.sh` with `curl -s` and pipes it
-into `bash`, so a failed download runs an empty script and still "succeeds".
-After the reboot you'll see:
+> **If it fails:** the kernel switch (installer step 2) can silently do nothing;
+> it happened on the first build. `ed-install.sh` downloads `kernel-change.sh`
+> with `curl -s` and pipes it into `bash`, so a failed download runs an empty
+> script and still "succeeds". After the reboot you'll see a black screen,
+> `uname -r` showing `6.12.x+rpt-rpi-v8`, only HDMI outputs in
+> `/sys/class/drm/`, an empty `/proc/fb`, and no `KERNEL=` line in
+> `/etc/default/raspi-firmware`. Run the kernel switch by hand, check it, then
+> reboot:
+> ```bash
+> # on the HMI (the script is also in golden_image/kernel-change.sh)
+> curl -fsSL https://apt.edatec.cn/downloads/202403/kernel-change.sh -o ~/kernel-change.sh
+> sudo bash ~/kernel-change.sh 6.6.31-rpi-v8
+>
+> md5sum /boot/firmware/kernel8.img /boot/vmlinuz-6.6.31-rpi-v8      # the two sums must match
+> md5sum /boot/firmware/initramfs8 /boot/initrd.img-6.6.31-rpi-v8    # the two sums must match
+> grep -E '^(KERNEL|INITRAMFS)=' /etc/default/raspi-firmware         # both lines = 6.6.31-rpi-v8
+> ls /boot/firmware/overlays | grep -i edatec                        # vc4-kms-dsi-edatec-panel-*.dtbo
+> sudo reboot
+> ```
+> If the HMI then doesn't boot, expose the eMMC on the laptop, mount both of
+> its partitions, and copy `/boot/vmlinuz-6.12.*-rpi-v8` from the root
+> partition (`/dev/sdX2`) over `kernel8.img` on the boot partition
+> (`/dev/sdX1`). That puts the stock kernel back.
 
-- a black screen;
-- `uname -r` showing `6.12.x+rpt-rpi-v8`;
-- only HDMI outputs in `/sys/class/drm/`;
-- an empty `/proc/fb`;
-- no `KERNEL=` line in `/etc/default/raspi-firmware`.
-
-**Fix:** run the kernel switch by hand, check it, then reboot:
-
-```bash
-# on the HMI (the script is also in golden_image/kernel-change.sh)
-curl -fsSL https://apt.edatec.cn/downloads/202403/kernel-change.sh -o ~/kernel-change.sh
-sudo bash ~/kernel-change.sh 6.6.31-rpi-v8
-
-md5sum /boot/firmware/kernel8.img /boot/vmlinuz-6.6.31-rpi-v8      # the two sums must match
-md5sum /boot/firmware/initramfs8 /boot/initrd.img-6.6.31-rpi-v8    # the two sums must match
-grep -E '^(KERNEL|INITRAMFS)=' /etc/default/raspi-firmware         # both lines = 6.6.31-rpi-v8
-ls /boot/firmware/overlays | grep -i edatec                        # vc4-kms-dsi-edatec-panel-*.dtbo
-sudo reboot
-```
-
-If the HMI then doesn't boot, expose the eMMC and copy
-`/boot/vmlinuz-6.12.*-rpi-v8` from the root partition over `kernel8.img` on the
-boot partition. That puts the stock kernel back.
-
-You can ignore these messages in `dmesg`:
-- `imx219` probe errors (EDATEC's configuration enables a camera that isn't fitted);
-- Bluetooth baud-rate timeouts;
-- `mmc1: Failed to initialize a non-removable card`.
-
-`ed-install.sh` also tries to copy a boot splash into
-`/usr/share/plymouth/themes/pix/`, which doesn't exist on Lite. The only effect
-is that there's no boot splash.
+> **Note:** you can ignore these messages in `dmesg` on the HMI:
+> - `imx219` probe errors (EDATEC's configuration enables a camera that isn't fitted);
+> - Bluetooth baud-rate timeouts;
+> - `mmc1: Failed to initialize a non-removable card`.
+>
+> `ed-install.sh` also tries to copy a boot splash into
+> `/usr/share/plymouth/themes/pix/`, which doesn't exist on Lite. The only
+> effect is that there's no boot splash.
 
 ### 1.4 Check the hardware
 
-After the reboot in 1.3, log in over SSH and run every check below before going
-on. A unit that fails one here will fail in the field too. The "Expected"
-column shows what the first build printed.
+After the reboot in 1.3, log in to the HMI over SSH and run every check below
+before going on. A unit that fails one here will fail in the field too. The
+"Expected" column shows what the first build printed.
 
-| # | Check | Command | Expected | If it fails |
+| # | Check | Command (on the HMI) | Expected | If it fails |
 | --- | --- | --- | --- | --- |
 | 1 | Panel shows a console | Look at the screen | Boot messages, then a `login:` prompt within about 30 s | Run checks 2–4 to find out why |
 | 2 | EDATEC kernel is running | `uname -r` | `6.6.31-rpi-v8` | `6.12.x+rpt-rpi-v8` means the kernel switch didn't happen; see the fix in 1.3 |
@@ -349,20 +406,20 @@ column shows what the first build printed.
 | 6 | Touches register | `sudo apt install -y evtest`, then `sudo evtest /dev/input/event5`. Tap and drag; Ctrl+C stops it | `ABS_MT_POSITION_X`, `ABS_MT_POSITION_Y` and `BTN_TOUCH` lines scroll by while you touch, and nothing when you don't | No events: wrong `eventN`, or a cable or controller fault |
 | 7 | EDATEC factory test is off | `systemctl is-enabled touch-test.service; systemctl is-active touch-test.service` | `disabled` and `inactive` | Run `sudo systemctl disable --now touch-test.service`. It would compete with `HPC_LinuxGUI` for the screen |
 
-Without internet for `evtest`, this also works for check 6. It prints raw bytes
-while you touch the screen, and nothing otherwise:
+> **Tip:** without internet for `evtest`, this also works for check 6. It prints
+> raw bytes while you touch the screen, and nothing otherwise:
+> ```bash
+> # on the HMI
+> sudo timeout 10 cat /dev/input/event5 | xxd | head
+> ```
 
-```bash
-sudo timeout 10 cat /dev/input/event5 | xxd | head
-```
+> **If it fails:** if `systemctl` or `nmcli` says "terminal is not fully
+> functional", that's your SSH client's terminal type, not a fault. In the SSH
+> session, run `export TERM=xterm-256color`, or add `--no-pager` to the command.
 
-If `systemctl` or `nmcli` says "terminal is not fully functional", that's your
-SSH client's terminal type, not a fault. Run `export TERM=xterm-256color`, or
-add `--no-pager`.
-
-`touch-test.service` runs EDATEC's factory test program,
-`/opt/ed-touchscreen-test/ed-touch-test`. The package has no command-line tool
-we can use.
+> **Note:** `touch-test.service` runs EDATEC's factory test program,
+> `/opt/ed-touchscreen-test/ed-touch-test`. The package has no command-line tool
+> we can use.
 
 ### 1.5 Prepare the image for cloning
 
@@ -371,114 +428,117 @@ every HMI flashed from it.
 
 #### Pre-checks
 
-| Check | Command | Expected (first build) |
-| --- | --- | --- |
-| SSH keys will be regenerated on each clone | `systemctl --no-pager cat regenerate_ssh_host_keys.service` | The unit exists (from `raspberrypi-sys-mods`), has `Before=ssh.service` and runs `/usr/lib/raspberrypi-sys-mods/regenerate_ssh_host_keys` |
-| Boot time before changes | `systemd-analyze; systemd-analyze blame --no-pager \| head` | `27.8s` total; `ed-lte-daemon.service` alone takes `20.0s`; `NetworkManager-wait-online` `6.2s` |
-| EDATEC services | `systemctl --no-pager list-unit-files 'ed-*' '*lte*' '*qmi*'` | `ed-lte-daemon` enabled, `ed-net-monitor` disabled, `ed-usb-tools` enabled |
-| Free space | `df -h /` | 29G, 2.3G used |
+Check that SSH host keys will be regenerated on each clone:
 
-Don't delete the SSH host keys (in the cleanup below) unless the regeneration
-unit exists. Without keys `ssh.service` fails, and the cloned HMIs can't be
-reached over the network.
+```bash
+# on the HMI
+systemctl --no-pager cat regenerate_ssh_host_keys.service
+```
+
+The unit must exist (from `raspberrypi-sys-mods`), have `Before=ssh.service`
+and run `/usr/lib/raspberrypi-sys-mods/regenerate_ssh_host_keys`. If it doesn't
+exist, don't delete the SSH host keys in the cleanup below: without keys
+`ssh.service` fails, and the cloned HMIs can't be reached over the network.
+
+> **First build:** baseline before any changes:
+>
+> | Check | Command (on the HMI) | Result |
+> | --- | --- | --- |
+> | Boot time | `systemd-analyze; systemd-analyze blame --no-pager \| head` | `27.8s` total; `ed-lte-daemon.service` alone takes `20.0s`; `NetworkManager-wait-online` `6.2s` |
+> | EDATEC services | `systemctl --no-pager list-unit-files 'ed-*' '*lte*' '*qmi*'` | `ed-lte-daemon` enabled, `ed-net-monitor` disabled, `ed-usb-tools` enabled |
+> | Free space | `df -h /` | 29G, 2.3G used |
 
 #### Turn off the LTE daemon
 
-`ed-lte-daemon.service` waits for an optional cellular modem and adds about
-20 s to every boot (also seen on the E180, see `dev_test/readme.md`). Turn it
-off in the golden image:
-
 ```bash
+# on the HMI
 sudo systemctl disable ed-lte-daemon.service && sudo reboot
-systemd-analyze        # after the reboot
+systemd-analyze        # after the reboot, log in again and run this
 ```
 
-Expected: `14.1s` total and `multi-user.target reached after 3.7s in userspace`
-(it was 27.8 s and 23.5 s). The slowest remaining item,
-`NetworkManager-wait-online` (6.2 s), doesn't delay `multi-user.target`, and
-provisioning turns it off.
+> **Note:** `ed-lte-daemon.service` waits for an optional cellular modem and adds
+> about 20 s to every boot (also seen on the E180, see `dev_test/readme.md`). On
+> an HMI that does use LTE, turn it back on with
+> `sudo systemctl enable ed-lte-daemon.service` on that HMI.
 
-On a unit that does use LTE, turn it back on with
-`sudo systemctl enable ed-lte-daemon.service`.
+> **First build:** `14.1s` total and `multi-user.target reached after 3.7s in
+> userspace` (it was 27.8 s and 23.5 s). The slowest remaining item,
+> `NetworkManager-wait-online` (6.2 s), doesn't delay `multi-user.target`, and
+> provisioning turns it off.
 
 #### Fixed address on the HPC port (eth2)
 
 This gives eth2 the address `192.168.0.4/24`, so you can SSH in right after
-flashing, before provisioning. The other two ports (eth0 and eth1) stay
-on DHCP here; the HMI program sets them up when it runs.
-
-The address is defined in one file,
+flashing, before provisioning. The address is defined in one file,
 [`BOOKWORM/network/eth2-hpc.nmconnection`](BOOKWORM/network/eth2-hpc.nmconnection).
-It's installed by hand here, and `stock-hmi.py` installs it again every time it
-runs.
 
-The profile picks the port by its **hardware path**, not by the name `eth2` or
-its MAC address:
+1. While still connected through the DHCP fallback, install the profile and
+   reboot:
+   ```bash
+   # on the laptop, from this repo (note the ':' at the end)
+   scp BOOKWORM/network/eth2-hpc.nmconnection pi@192.168.1.<x>:
+   # on the HMI
+   sudo install -m 600 -o root -g root ~/eth2-hpc.nmconnection /etc/NetworkManager/system-connections/
+   rm ~/eth2-hpc.nmconnection
+   sudo nmcli con reload
+   sudo reboot
+   ```
+2. Move the cable to the HMI's eth2 socket, reconnect on `192.168.0.4` with the
+   [normal method](#normal-method-the-hpc-port-eth2-at-19216804), and check:
 
-| Name (first build) | Hardware | `ID_PATH` | Role |
-| --- | --- | --- | --- |
-| eth0 | CM4 built-in, `bcmgenet` | `platform-fd580000.ethernet` | bridge |
-| eth1 | Realtek RTL8153 USB, `r8152` | `platform-fd500000.pcie-pci-0000:01:00.0-usb-0:2:1.0` | bridge |
-| **eth2** | Realtek RTL8153 USB, `r8152` | `platform-fd500000.pcie-pci-0000:01:00.0-usb-0:3:1.0` | **HPC controller, 192.168.0.4** |
+   | Check | Command (on the HMI) | Expected (first build) |
+   | --- | --- | --- |
+   | Profile active on eth2 | `nmcli -f NAME,DEVICE con show --active` | `eth2-hpc  eth2` |
+   | Address | `ip -br addr show eth2` | `eth2 UP 192.168.0.4/24 fe80::…/64` |
+   | Right socket | `udevadm info -q property -p /sys/class/net/eth2 \| grep ID_PATH` | `…-usb-0:3:1.0` |
 
-eth1 and eth2 are two USB network chips, so their names follow the order in
-which USB finds them and could swap between boots. MAC addresses differ from
-unit to unit. The `ID_PATH` is the same on every HMI2220-070C.
+> **If it fails:** if the profile isn't active, check that the file has mode
+> `600` and is owned by root (NetworkManager ignores it otherwise), and that the
+> `ID_PATH` matches the file's `[match] path=` line.
 
-TODO: record which labelled socket on the case is `usb-0:3` (eth2), for
-technicians.
+> **Note:** the other two ports (eth0 and eth1) stay on DHCP here; the HMI
+> program sets them up when it runs. `stock-hmi.py` installs the eth2 profile
+> again every time it runs.
 
-To collect the table above on a unit:
+> **Note:** the profile picks the port by its **hardware path**, not by the name
+> `eth2` or its MAC address. eth1 and eth2 are two USB network chips, so their
+> names follow the order in which USB finds them and could swap between boots.
+> MAC addresses differ from unit to unit. The `ID_PATH` is the same on every
+> HMI2220-070C.
+>
+> | Name (first build) | Hardware | `ID_PATH` | Role |
+> | --- | --- | --- | --- |
+> | eth0 | CM4 built-in, `bcmgenet` | `platform-fd580000.ethernet` | bridge |
+> | eth1 | Realtek RTL8153 USB, `r8152` | `platform-fd500000.pcie-pci-0000:01:00.0-usb-0:2:1.0` | bridge |
+> | **eth2** | Realtek RTL8153 USB, `r8152` | `platform-fd500000.pcie-pci-0000:01:00.0-usb-0:3:1.0` | **HPC controller, 192.168.0.4** |
+>
+> To collect this table on an HMI:
+> ```bash
+> # on the HMI
+> for i in /sys/class/net/eth*; do echo "== ${i##*/} mac=$(cat $i/address)"; udevadm info -q property -p $i | grep -E '^(ID_PATH|ID_NET_DRIVER|ID_BUS|ID_MODEL|ID_VENDOR)='; done
+> ip -br link        # the port with a cable in it shows UP / LOWER_UP
+> ```
+>
+> TODO: record which labelled socket on the case is `usb-0:3` (eth2), for
+> technicians.
 
-```bash
-for i in /sys/class/net/eth*; do echo "== ${i##*/} mac=$(cat $i/address)"; udevadm info -q property -p $i | grep -E '^(ID_PATH|ID_NET_DRIVER|ID_BUS|ID_MODEL|ID_VENDOR)='; done
-ip -br link        # the port with a cable in it shows UP / LOWER_UP
-```
-
-Install the profile on the HMI while you're still connected through the DHCP
-fallback:
-
-```bash
-# on the laptop, from this repo (note the ':' at the end)
-scp BOOKWORM/network/eth2-hpc.nmconnection pi@192.168.1.<x>:
-# on the HMI
-sudo install -m 600 -o root -g root ~/eth2-hpc.nmconnection /etc/NetworkManager/system-connections/
-rm ~/eth2-hpc.nmconnection
-sudo nmcli con reload
-sudo reboot
-```
-
-Move the cable to eth2, reconnect on `192.168.0.4` with the
-[normal method](#normal-method-the-hpc-port-eth2-at-19216804), and check:
-
-| Check | Command | Expected (first build) |
-| --- | --- | --- |
-| Profile active on eth2 | `nmcli -f NAME,DEVICE con show --active` | `eth2-hpc  eth2` |
-| Address | `ip -br addr show eth2` | `eth2 UP 192.168.0.4/24 fe80::…/64` |
-| Right socket | `udevadm info -q property -p /sys/class/net/eth2 \| grep ID_PATH` | `…-usb-0:3:1.0` |
-
-If the profile isn't active, check that the file has mode `600` and is owned by
-root (NetworkManager ignores it otherwise), and that the `ID_PATH` matches the
-file's `[match] path=` line.
-
-**How this interacts with the HMI program.** Every time `HPC_LinuxGUI` starts,
-it deletes and recreates its own `eth2-hpc` profile, along with a `br0` bridge
-over eth0 and eth1
-(`HPC_Firmware/LinuxHMI/HPC_LinuxGUI/src/system/network_config_nmcli.cpp`). Our
-profile uses the same name, so the app replaces it rather than competing with
-it.
-
-- The app's eth2 address was changed from `.1` to `.4` on 2026-10-22, on
-  `HPC_Firmware` branch `eth2-static-192.168.0.4`. App v2.0.8 and earlier still
-  set eth2 to `.1` when they start, as seen in [2.3](#23-check-the-provisioned-hmi).
-  TODO: release an app build with the `.4` change.
-- The controller still uses `192.168.0.1` as its **gateway**
-  (`HPC_Firmware/iot/src/ethernet_vars.h`). TODO: change it to `.4` for
-  anything the controller routes through the HMI.
-- The app picks the port by name (`ifname eth2`). If the two USB network chips
-  are ever found in the other order, its address and the bridge end up on the
-  wrong sockets. Matching by `ID_PATH`, as our profile does, avoids that.
-  TODO: consider the same in the app.
+> **Note:** how this interacts with the HMI program. Every time `HPC_LinuxGUI`
+> starts, it deletes and recreates its own `eth2-hpc` profile, along with a
+> `br0` bridge over eth0 and eth1
+> (`HPC_Firmware/LinuxHMI/HPC_LinuxGUI/src/system/network_config_nmcli.cpp`).
+> Our profile uses the same name, so the app replaces it rather than competing
+> with it.
+> - The app's eth2 address was changed from `.1` to `.4` on 2026-10-22, on
+>   `HPC_Firmware` branch `eth2-static-192.168.0.4`. App v2.0.8 and earlier still
+>   set eth2 to `.1` when they start, as seen in [2.3](#23-check-the-provisioned-hmi).
+>   TODO: release an app build with the `.4` change.
+> - The controller still uses `192.168.0.1` as its **gateway**
+>   (`HPC_Firmware/iot/src/ethernet_vars.h`). TODO: change it to `.4` for
+>   anything the controller routes through the HMI.
+> - The app picks the port by name (`ifname eth2`). If the two USB network chips
+>   are ever found in the other order, its address and the bridge end up on the
+>   wrong sockets. Matching by `ID_PATH`, as our profile does, avoids that.
+>   TODO: consider the same in the app.
 
 #### Clean up before capturing
 
@@ -487,41 +547,41 @@ image is distinct. This must be the **last** thing you do before capturing.
 **Don't boot the HMI again before 1.6**: booting recreates the keys and the
 machine ID.
 
-The `regenerate_ssh_host_keys` service (checked in the pre-checks) deletes the
-keys, runs `ssh-keygen -A` and then disables itself, so it runs exactly once, on
-each clone's first boot. The keys are also deleted here so that no private key
-ends up in the image file.
+1. Clean up:
+   ```bash
+   # on the HMI
+   sudo apt clean
+   sudo systemctl enable regenerate_ssh_host_keys.service
+   sudo rm -f /etc/ssh/ssh_host_*
+   sudo truncate -s 0 /etc/machine-id                       # systemd creates a new one on first boot
+   ls -l /var/lib/dbus/machine-id                           # should be a symlink to /etc/machine-id
+   sudo rm -f /var/lib/NetworkManager/*.lease
+   rm -f ~/kernel-change.sh
+   echo "HPC_GOLDEN=$(date +%Y.%m.%d)" | sudo tee /etc/hpc-release   # the image's version, e.g. 2026.10.22
+   ```
+2. Check the cleanup, then power off without leaving shell history behind:
+   ```bash
+   # on the HMI
+   systemctl is-enabled regenerate_ssh_host_keys.service   # enabled
+   ls /etc/ssh/ssh_host_* 2>&1                             # No such file or directory
+   wc -c < /etc/machine-id                                 # 0
+   cat /etc/hpc-release                                    # HPC_GOLDEN=<today's date>
+   systemctl is-enabled ed-lte-daemon.service              # disabled
+   ls -l /etc/NetworkManager/system-connections/           # only eth2-hpc.nmconnection, -rw------- root root
+   ls -l /boot/firmware/userconf.txt                       # No such file (it held a password hash)
 
-```bash
-# on the HMI
-sudo apt clean
-sudo systemctl enable regenerate_ssh_host_keys.service
-sudo rm -f /etc/ssh/ssh_host_*
-sudo truncate -s 0 /etc/machine-id                       # systemd creates a new one on first boot
-ls -l /var/lib/dbus/machine-id                           # should be a symlink to /etc/machine-id
-sudo rm -f /var/lib/NetworkManager/*.lease
-rm -f ~/kernel-change.sh
-echo "HPC_GOLDEN=$(date +%Y.%m.%d)" | sudo tee /etc/hpc-release   # the image's version, e.g. 2026.10.22
-```
+   unset HISTFILE; rm -f ~/.bash_history; sudo poweroff
+   ```
 
-`/etc/hpc-release` records what's installed on a unit. The golden image writes
-`HPC_GOLDEN`; provisioning adds the setup and app versions (see 2.2). The
-2026-10-22 image was built before this file existed, so units flashed from it
-show `HPC_GOLDEN=unknown`.
+> **Note:** the `regenerate_ssh_host_keys` service (checked in the pre-checks)
+> deletes the keys, runs `ssh-keygen -A` and then disables itself, so it runs
+> exactly once, on each clone's first boot. The keys are also deleted here so
+> that no private key ends up in the image file.
 
-Check the cleanup, then power off without leaving shell history behind:
-
-```bash
-systemctl is-enabled regenerate_ssh_host_keys.service   # enabled
-ls /etc/ssh/ssh_host_* 2>&1                             # No such file or directory
-wc -c < /etc/machine-id                                 # 0
-cat /etc/hpc-release                                    # HPC_GOLDEN=<today's date>
-systemctl is-enabled ed-lte-daemon.service              # disabled
-ls -l /etc/NetworkManager/system-connections/           # only eth2-hpc.nmconnection, -rw------- root root
-ls -l /boot/firmware/userconf.txt                       # No such file (it held a password hash)
-
-unset HISTFILE; rm -f ~/.bash_history; sudo poweroff
-```
+> **Note:** `/etc/hpc-release` records what's installed on a unit. The golden
+> image writes `HPC_GOLDEN`; provisioning adds the setup and app versions (see
+> 2.2). The 2026-10-22 image was built before this file existed, so units
+> flashed from it show `HPC_GOLDEN=unknown`.
 
 TODO: turn this cleanup into a script in the repo, so it can't be done
 partially.
@@ -529,73 +589,89 @@ partially.
 ### 1.6 Capture and shrink the image
 
 Name the image after the build date: `hpc-golden-YYYY-MM-DD.img`. The first
-build is `hpc-golden-2026-10-22.img`. You need about 32 GB of free disk space
-for the copy.
+build is `hpc-golden-2026-10-22.img`; replace that name with yours in the
+commands below. You need about 32 GB of free disk space on the laptop for the
+copy.
 
 1. Expose the eMMC ([procedure above](#procedure-expose-the-emmc-on-the-laptop)).
-   The desktop may mount the boot partition automatically. Unmount it, and don't
-   mount anything else:
+   Make sure none of its partitions is mounted on the laptop:
    ```bash
-   udisksctl unmount -b /dev/sdX1
-   lsblk /dev/sdX          # the MOUNTPOINTS column must be empty
+   # on the laptop
+   udisksctl unmount -b /dev/sdX1    # the desktop may have mounted the boot partition
+   lsblk /dev/sdX                    # the MOUNTPOINTS column must be empty
    ```
-   If the unmount says "target is busy", close any file manager window showing
-   the disk and try again.
-2. Copy the whole eMMC to a file. **`if=` (input) is the eMMC and `of=`
-   (output) is the file.** If you swap them, the file overwrites the eMMC.
+2. Copy the whole eMMC to a file on the laptop:
    ```bash
+   # on the laptop
    sudo dd if=/dev/sdX of=hpc-golden-2026-10-22.img bs=4M status=progress conv=fsync
    sudo chown $USER: hpc-golden-2026-10-22.img
    ```
-3. Shrink and compress it with [PiShrink](https://github.com/Drewsif/PiShrink).
-   PiShrink shrinks the filesystem to its contents, arranges for it to expand
-   back to full size on first boot, and with `-Z` compresses the result with xz.
-   `-a` uses all CPU cores.
+3. Shrink and compress it with [PiShrink](https://github.com/Drewsif/PiShrink),
+   and write its checksum:
    ```bash
+   # on the laptop
    sudo pishrink.sh -Z -a hpc-golden-2026-10-22.img    # writes .img.xz and removes the .img
    sha256sum hpc-golden-2026-10-22.img.xz > hpc-golden-2026-10-22.img.xz.sha256
    ls -lh hpc-golden-2026-10-22.img*
    ```
-   Output from the first build (PiShrink v26.03.16):
-   ```
-   pishrink.sh: An existing /etc/rc.local was not found, autoexpand may fail...
-   Creating new /etc/rc.local
-   rootfs: 64723/1810016 files (0.2% non-contiguous), 679388/7500800 blocks
-   Resizing the filesystem on /dev/loop0 to 825439 (4k) blocks.
-   pishrink.sh: Zeroed 950M
-   pishrink.sh: Shrunk hpc-golden-2026-10-22.img.xz from 30G to 507M in 1m 30s
-   ```
-   - The `rc.local` warning is expected: Bookworm doesn't have one, so PiShrink
-     creates its own to expand the filesystem on first boot. 1.7 checks that it
-     worked.
-   - If the "Checking filesystem" step reports errors, the copy is bad. Redo
-     step 2.
 4. Upload the `.img.xz` and its `.sha256` file to the image storage (see
-   [Where the images are stored](#where-the-images-are-stored)). Never replace
-   an existing image; upload a new one with a new date.
-5. Record the image's contents next to it. For the first build:
+   [Where the images are stored](#where-the-images-are-stored)) as a new file.
+   Never replace an existing image.
+5. Add a record of the image's contents to [Image records](#image-records)
+   below, in the same form as the first build's.
 
-   | Item | Value |
-   | --- | --- |
-   | File | `hpc-golden-2026-10-22.img.xz`, 507M |
-   | SHA-256 | `dcf8cf1403c065be78ce5aad20b8625a58395161cd887240d99ba2af0d2e0020` |
-   | Pi OS release | `2026-10-06-raspios-bookworm-arm64-lite` |
-   | Kernel | `6.6.31-rpi-v8` (EDATEC `ed-linux-image-6.6.31-v8`, held) |
-   | Login | `pi` / `raspberry` |
+> **If it fails:** if the unmount says "target is busy", close any file manager
+> window showing the disk and try again.
 
-   EDATEC packages, from `dpkg -l 'ed-*'` on the first flashed HMI:
+> **Tip:** in `dd`, `if=` (input) is the eMMC and `of=` (output) is the file.
+> Check this twice: if you swap them, the file overwrites the eMMC.
 
-   | Package | Version |
-   | --- | --- |
-   | `ed-base-bsp-v8` | 2:1.20260508.1 |
-   | `ed-hmi2220-070c-firmware` | 1.20241204.1 |
-   | `ed-linux-image-6.6.31-v8` | 2:1.20250716.1 |
-   | `ed-lvd` | 1.20260522.1 |
-   | `ed-qmi-tool` | 2.0.4 |
-   | `ed-reboot` | 1.20250704.1 |
-   | `ed-rtc` | 1.20250620.1 |
-   | `ed-touchscreen-test` | 1.20250731.1 |
-   | `ed-usb-tools` | 1.20250912 |
+> **Note:** PiShrink shrinks the filesystem to its contents, arranges for it to
+> expand back to full size on first boot, and with `-Z` compresses the result
+> with xz. `-a` uses all CPU cores.
+
+> **First build:** PiShrink v26.03.16 printed:
+> ```
+> pishrink.sh: An existing /etc/rc.local was not found, autoexpand may fail...
+> Creating new /etc/rc.local
+> rootfs: 64723/1810016 files (0.2% non-contiguous), 679388/7500800 blocks
+> Resizing the filesystem on /dev/loop0 to 825439 (4k) blocks.
+> pishrink.sh: Zeroed 950M
+> pishrink.sh: Shrunk hpc-golden-2026-10-22.img.xz from 30G to 507M in 1m 30s
+> ```
+> The `rc.local` warning is expected: Bookworm doesn't have one, so PiShrink
+> creates its own to expand the filesystem on first boot. 1.7 checks that it
+> worked.
+
+> **If it fails:** if PiShrink's "Checking filesystem" step reports errors, the
+> copy is bad. Redo step 2.
+
+#### Image records
+
+`hpc-golden-2026-10-22`:
+
+| Item | Value |
+| --- | --- |
+| File | `hpc-golden-2026-10-22.img.xz`, 507M |
+| SHA-256 | `dcf8cf1403c065be78ce5aad20b8625a58395161cd887240d99ba2af0d2e0020` |
+| Pi OS release | `2026-10-06-raspios-bookworm-arm64-lite` |
+| Kernel | `6.6.31-rpi-v8` (EDATEC `ed-linux-image-6.6.31-v8`, held) |
+| Login | `pi` / `raspberry` |
+
+EDATEC packages in this image, from `dpkg -l 'ed-*'` on the first HMI flashed
+with it:
+
+| Package | Version |
+| --- | --- |
+| `ed-base-bsp-v8` | 2:1.20260508.1 |
+| `ed-hmi2220-070c-firmware` | 1.20241204.1 |
+| `ed-linux-image-6.6.31-v8` | 2:1.20250716.1 |
+| `ed-lvd` | 1.20260522.1 |
+| `ed-qmi-tool` | 2.0.4 |
+| `ed-reboot` | 1.20250704.1 |
+| `ed-rtc` | 1.20250620.1 |
+| `ed-touchscreen-test` | 1.20250731.1 |
+| `ed-usb-tools` | 1.20250912 |
 
 #### Where the images are stored
 
@@ -614,41 +690,30 @@ file, and a rule that files are never replaced, only added.
 ### 1.7 Flash the golden image onto an HMI
 
 A maintainer does this. It works offline: you need the `.img.xz`, its
-`.sha256` file and the `rpiboot-msd-cm4/` loader folder.
+`.sha256` file and the `rpiboot-msd-cm4/` loader folder on the laptop. The
+commands use the 2026-10-22 image; replace the name if you're flashing another.
 
 1. Check that the image file is complete and unchanged:
    ```bash
+   # on the laptop, in the folder holding the image
    sha256sum -c hpc-golden-2026-10-22.img.xz.sha256      # must print OK
    ```
 2. Expose the eMMC ([procedure above](#procedure-expose-the-emmc-on-the-laptop)).
-3. Write the image. Either use `sudo rpi-imager` (**Use custom**, the golden
-   `.img.xz`, the `RPi-MSD- 0001` disk, Write; no customisation is needed,
-   because the image already has `pi` and SSH), or use `dd`:
+3. Write the image with `dd`, and wait for the prompt to return before
+   unplugging anything:
    ```bash
+   # on the laptop
    xzcat hpc-golden-2026-10-22.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
    ```
-   With `dd`, the progress line reaches about 3.9 GB within seconds and then
-   seems to hang with no prompt. That's expected. The data went into the
-   laptop's memory first, and `conv=fsync` makes `dd` wait while it's written to
-   the eMMC at only about 5 MB/s, which takes roughly 12 minutes. To watch the
-   remaining amount fall, run this in another terminal:
-   ```bash
-   watch -n5 grep -e Dirty -e Writeback: /proc/meminfo
-   ```
-   Don't unplug anything until the prompt returns. On the first flash it ended
-   with:
-   ```
-   0+118057 records in
-   0+118057 records out
-   3926258176 bytes (3.9 GB, 3.7 GiB) copied, 743.663 s, 5.3 MB/s
-   ```
-   The byte count must be `3926258176` for this image. `0+N records` is normal
-   when reading from a pipe.
-4. Power off the HMI, unplug the Micro USB cable, plug the laptop into eth2 and
-   power on. The panel should show a console within about 30 s. The first boot
-   expands the filesystem.
-5. Check the result from the laptop, using the
-   [normal method](#normal-method-the-hpc-port-eth2-at-19216804):
+   Or run `sudo rpi-imager` on the laptop: **Use custom**, the golden `.img.xz`, the
+   `RPi-MSD- 0001` disk, Write. No customisation is needed, because the image
+   already has `pi` and SSH.
+4. Power off the HMI, unplug the Micro USB cable, plug the laptop into the
+   HMI's eth2 socket and power on the HMI. Its panel should show a console
+   within about 30 s.
+5. Log in from the laptop with the
+   [normal method](#normal-method-the-hpc-port-eth2-at-19216804) and check the
+   result. The first command runs on the laptop; the rest run on the HMI.
 
    | Check | Command | Expected (first flash) |
    | --- | --- | --- |
@@ -658,10 +723,31 @@ A maintainer does this. It works offline: you need the `.img.xz`, its
    | Kernel | `uname -r` | `6.6.31-rpi-v8` |
    | Display | `cat /proc/fb` | `0 vc4drmfb` |
    | eth2 profile | `nmcli -f NAME,DEVICE con show --active` | `eth2-hpc  eth2` and `lo  lo` |
-   | EDATEC packages | `dpkg -l 'ed-*'` | 9 packages, all `ii`, with the versions listed in 1.6 |
+   | EDATEC packages | `dpkg -l 'ed-*'` | 9 packages, all `ii`, with the versions in [Image records](#image-records) |
 
-   If `df` shows about 3G instead of 29G, the filesystem didn't expand. Expand
-   it by hand with `sudo raspi-config nonint do_expand_rootfs && sudo reboot`.
+> **Note:** with `dd`, the progress line reaches about 3.9 GB within seconds and
+> then seems to hang with no prompt. That's expected. The data went into the
+> laptop's memory first, and `conv=fsync` makes `dd` wait while it's written to
+> the eMMC at only about 5 MB/s, which takes roughly 12 minutes.
+
+> **Tip:** to watch the remaining amount fall, run this in another terminal:
+> ```bash
+> # on the laptop
+> watch -n5 grep -e Dirty -e Writeback: /proc/meminfo
+> ```
+
+> **First build:** the first flash ended with:
+> ```
+> 0+118057 records in
+> 0+118057 records out
+> 3926258176 bytes (3.9 GB, 3.7 GiB) copied, 743.663 s, 5.3 MB/s
+> ```
+> The byte count must be `3926258176` for this image. `0+N records` is normal
+> when reading from a pipe.
+
+> **If it fails:** if `df` shows about 3G instead of 29G, the filesystem didn't
+> expand on first boot. Expand it by hand on the HMI with
+> `sudo raspi-config nonint do_expand_rootfs && sudo reboot`.
 
 ---
 
@@ -674,17 +760,17 @@ works offline: you need a laptop, an Ethernet cable and the provisioning USB.
 
 ### 2.1 Build the provisioning USB
 
-The maintainer does this on a PC with `stock_hmi` and `hpc-releases` checked
-out side by side (for example `~/nwhs/stock_hmi` and `~/nwhs/hpc-releases`).
+The maintainer does this on the laptop (or any Linux PC) with `stock_hmi` and
+`hpc-releases` checked out side by side (for example `~/nwhs/stock_hmi` and
+`~/nwhs/hpc-releases`).
 
 1. Update both checkouts (`git pull`), and make sure `stock_hmi` has no
    uncommitted changes.
-2. Plug in a FAT32 or exFAT USB stick. The stick doesn't have to be empty: the
-   script only adds its own files and folders, and `--replace` only removes
-   those.
-3. Build the kit, using the stick's mount point:
+2. Plug a FAT32 or exFAT USB stick into the laptop.
+3. Build the kit, using the stick's mount point (`<USB>` is the stick's label):
    ```bash
-   cd stock_hmi
+   # on the laptop
+   cd ~/nwhs/stock_hmi
    ./make-usb-kit.py /run/media/$USER/<USB>              # the release named in hpc-releases/CURRENT
    ./make-usb-kit.py /run/media/$USER/<USB> --release v2.0.8 --replace   # a specific release, replacing an old kit
    ```
@@ -696,11 +782,11 @@ out side by side (for example `~/nwhs/stock_hmi` and `~/nwhs/hpc-releases`).
    stock_hmi: 2507e7e
    releases:  a808bf7
    ```
-   If the `stock_hmi` line ends in `-dirty`, the checkout had uncommitted
-   changes. Commit them and rebuild, so the kit can be traced to a commit.
-4. Unmount the stick (close any file manager window showing it first):
+4. Unmount the stick. Its device name is in `lsblk`; it's not the eMMC's
+   `/dev/sdX` from section 0.
    ```bash
-   udisksctl unmount -b /dev/sdX1
+   # on the laptop
+   udisksctl unmount -b /dev/<stick-partition>    # e.g. /dev/sdc1
    ```
 
 The kit contains:
@@ -716,29 +802,40 @@ USB/
 └── SHA256SUMS    # a checksum for every file (331 for v2.0.8)
 ```
 
-There's no `settings.txt` in the kit. The app creates its own on first start.
+> **Note:** the stick doesn't have to be empty: the script only adds its own
+> files and folders, and `--replace` only removes those.
 
-To flash the HMI from the same stick, copy the golden image, its `.sha256`
-file and the `rpiboot-msd-cm4/` folder onto it by hand.
+> **If it fails:** if the `stock_hmi` line ends in `-dirty`, the checkout had
+> uncommitted changes. Commit them and rebuild, so the kit can be traced to a
+> commit.
+
+> **Note:** there's no `settings.txt` in the kit. The app creates its own on
+> first start.
+
+> **Tip:** to flash the HMI from the same stick, copy the golden image, its
+> `.sha256` file and the `rpiboot-msd-cm4/` folder onto it by hand.
 
 ### 2.2 Run the provisioner
 
 The golden image has no desktop, so everything is done over SSH.
 
-1. Plug the laptop into the HMI's eth2 socket and log in:
+1. Plug the laptop into the HMI's eth2 socket and log in with the
+   [normal method](#normal-method-the-hpc-port-eth2-at-19216804):
    ```bash
-   nmcli con up hmi-eth2
+   # on the laptop
    ssh pi@192.168.0.4                   # password: raspberry
    ```
 2. Check that the tools the provisioner uses are present. Each line should show
-   a path, as it did on the 2026-10-22 golden image. If any says `MISSING`,
-   stop: the provisioner would fail partway through.
+   a path. If any says `MISSING`, stop: the provisioner would fail partway
+   through.
    ```bash
+   # on the HMI
    for c in rsync setcap ldd visudo nmcli udevadm hostnamectl python3; do printf '%-12s %s\n' $c "$(command -v $c || echo MISSING)"; done
    ```
 3. Plug the USB stick into the HMI, mount it, and check the kit:
    ```bash
-   lsblk                                # find the stick, e.g. sda1
+   # on the HMI
+   lsblk                                # find the stick, e.g. sda1 (on the HMI, the eMMC is mmcblk0)
    sudo mount /dev/sda1 /mnt
    cd /mnt
    cat KIT.txt                          # is this the release you expect?
@@ -748,95 +845,79 @@ The golden image has no desktop, so everything is done over SSH.
    is damaged or was changed; rebuild it.
 4. Run the provisioner:
    ```bash
+   # on the HMI, in /mnt
    sudo python3 ./stock-hmi.py
    ```
    It takes about 15 seconds and finishes by rebooting the HMI, which closes
-   your SSH session. The first successful run printed (shortened):
-   ```
-   Installing runtime packages
-   Setting up libip6tc2:arm64 (1.8.9-2) ...
-   Setting up libpaho-mqtt1.3:arm64 (1.3.12-1) ...
-   Setting up iptables (1.8.9-2) ...
-   Running: useradd --create-home --user-group --shell /bin/bash nwhs
-   Running: /usr/bin/rsync -a --delete --exclude=/settings.txt --chown=nwhs:nwhs /mnt/bin/ /home/nwhs/hpc-hmi/bin/
-   ldd output:
-       libpaho-mqtt3a.so.1 => /lib/aarch64-linux-gnu/libpaho-mqtt3a.so.1
-       libudev.so.1 => /lib/aarch64-linux-gnu/libudev.so.1
-       ...
-   /etc/sudoers.d/nwhs-hpc: parsed OK
-   Created symlink /etc/systemd/system/multi-user.target.wants/hmi.service → /etc/systemd/system/hmi.service.
-   Running: usermod --lock pi
-   Legacy users to remove on reboot: pi
-   Provisioning completed successfully
-   The system will reboot in five seconds
-   Connection to 192.168.0.4 closed by remote host.
-   ```
-   Two lines look like errors but are harmless: `usermod: no changes`, and
-   `Failed to disable unit: Unit file display-manager.service does not exist`
-   (Lite has no desktop).
+   your SSH session.
 
-**If it stops at "Installing runtime packages"** with `dpkg: dependency
-problems`, one of the bundled packages needs other packages that aren't on the
-golden image. Nothing else has been changed at that point. To recover:
+> **First build:** the first successful run printed (shortened):
+> ```
+> Installing runtime packages
+> Setting up libip6tc2:arm64 (1.8.9-2) ...
+> Setting up libpaho-mqtt1.3:arm64 (1.3.12-1) ...
+> Setting up iptables (1.8.9-2) ...
+> Running: useradd --create-home --user-group --shell /bin/bash nwhs
+> Running: /usr/bin/rsync -a --delete --exclude=/settings.txt --chown=nwhs:nwhs /mnt/bin/ /home/nwhs/hpc-hmi/bin/
+> ldd output:
+>     libpaho-mqtt3a.so.1 => /lib/aarch64-linux-gnu/libpaho-mqtt3a.so.1
+>     libudev.so.1 => /lib/aarch64-linux-gnu/libudev.so.1
+>     ...
+> /etc/sudoers.d/nwhs-hpc: parsed OK
+> Created symlink /etc/systemd/system/multi-user.target.wants/hmi.service → /etc/systemd/system/hmi.service.
+> Running: usermod --lock pi
+> Legacy users to remove on reboot: pi
+> Provisioning completed successfully
+> The system will reboot in five seconds
+> Connection to 192.168.0.4 closed by remote host.
+> ```
+> Two lines look like errors but are harmless: `usermod: no changes`, and
+> `Failed to disable unit: Unit file display-manager.service does not exist`
+> (Lite has no desktop).
 
-1. Remove the half-installed package: `sudo dpkg --purge <name>`.
-2. Check the package database is clean: `sudo dpkg --audit` should print
-   nothing.
-3. Fix `BOOKWORM/debs/` in this repo, rebuild the kit and run the provisioner
-   again.
+> **If it fails:** if it stops at "Installing runtime packages" with
+> `dpkg: dependency problems`, one of the bundled packages needs other packages
+> that aren't on the golden image. Nothing else has been changed at that point.
+> To recover:
+> 1. Remove the half-installed package: `sudo dpkg --purge <name>`.
+> 2. Check the package database is clean: `sudo dpkg --audit` should print
+>    nothing.
+> 3. Fix `BOOKWORM/debs/` in this repo, rebuild the kit and run the provisioner
+>    again.
+>
+> This is how `libx11-dev` was found and removed. It's only needed to compile
+> the app, not to run it.
 
-This is how `libx11-dev` was found and removed. It's only needed to compile
-the app, not to run it.
-
-What the provisioner does, in order:
-
-1. installs the packages from `debs/`;
-2. creates the `nwhs` user with the standard password, in the `sudo`, `video`,
-   `input` and other hardware groups;
-3. copies `bin/` to `/home/nwhs/hpc-hmi/bin/`, checks with `ldd` that every
-   library the app needs is present, and gives `HPC_LinuxGUI` permission to
-   change network settings (`cap_net_admin,cap_net_raw`);
-4. sets the hostname to `hpc`;
-5. installs `network/eth2-hpc.nmconnection` again, so eth2 is `192.168.0.4`
-   even if something changed it;
-6. lets `nwhs` use sudo (with a password) and run `nmcli` and `ip` without one;
-7. adds a udev rule that creates `/dev/input/touchscreen`;
-8. installs `hmi.service` (runs `HPC_LinuxGUI 192.168.0.2`) and
-   `hmi-console.service`, sets up autologin on the panel, starts in text mode
-   (`multi-user.target`) and keeps SSH on;
-9. locks every login user except `nwhs` (on the golden image, that's `pi`) and
-   **deletes them on the next boot**, along with their sudo rules;
-10. records the installed versions in `/etc/hpc-release` (`HPC_APP`,
-    `HPC_APP_COMMIT` and `HPC_APP_DATE` after copying the app; `HPC_SETUP` and
-    `HPC_SETUP_DATE` at the end, plus `HPC_GOLDEN=unknown` if the golden image
-    didn't set it). Each step replaces only its own lines;
-11. logs everything to `/var/log/hpc-stock-installer.log`, then reboots.
+> **Note:** what the provisioner does, in order:
+> 1. installs the packages from `debs/`;
+> 2. creates the `nwhs` user with the standard password, in the `sudo`, `video`,
+>    `input` and other hardware groups;
+> 3. copies `bin/` to `/home/nwhs/hpc-hmi/bin/`, checks with `ldd` that every
+>    library the app needs is present, and gives `HPC_LinuxGUI` permission to
+>    change network settings (`cap_net_admin,cap_net_raw`);
+> 4. sets the hostname to `hpc`;
+> 5. installs `network/eth2-hpc.nmconnection` again, so eth2 is `192.168.0.4`
+>    even if something changed it;
+> 6. lets `nwhs` use sudo (with a password) and run `nmcli` and `ip` without one;
+> 7. adds a udev rule that creates `/dev/input/touchscreen`;
+> 8. installs `hmi.service` (runs `HPC_LinuxGUI 192.168.0.2`) and
+>    `hmi-console.service`, sets up autologin on the panel, starts in text mode
+>    (`multi-user.target`) and keeps SSH on;
+> 9. locks every login user except `nwhs` (on the golden image, that's `pi`) and
+>    **deletes them on the next boot**, along with their sudo rules;
+> 10. records the installed versions in `/etc/hpc-release` (`HPC_APP`,
+>     `HPC_APP_COMMIT` and `HPC_APP_DATE` after copying the app; `HPC_SETUP` and
+>     `HPC_SETUP_DATE` at the end, plus `HPC_GOLDEN=unknown` if the golden image
+>     didn't set it). Each step replaces only its own lines;
+> 11. logs everything to `/var/log/hpc-stock-installer.log`, then reboots.
 
 ### 2.3 Check the provisioned HMI
 
-After the reboot, log in as `nwhs`. The `pi` user no longer exists.
+After the HMI reboots, log in from the laptop as `nwhs` (`ssh nwhs@192.168.0.4`,
+or `192.168.0.1` with app v2.0.8 or earlier; see the note below) and run these
+checks. The `pi` user no longer exists.
 
-**Reaching the HMI with app v2.0.8 or earlier.** These versions move eth2 to
-`192.168.0.1` when the app starts. Many routers also use that address, so on a
-laptop that's also on Wi-Fi, turn Wi-Fi off and use a profile for the whole
-`192.168.0.x` range:
-
-```bash
-nmcli radio wifi off
-nmcli con add type ethernet con-name hmi-eth2-wide ifname eno1 ipv4.method manual \
-  ipv4.addresses 192.168.0.100/24 ipv4.never-default yes ipv6.method link-local
-nmcli con up hmi-eth2-wide
-ssh nwhs@192.168.0.1
-```
-
-When you're done, get Wi-Fi back with
-`nmcli con down hmi-eth2-wide; nmcli radio wifi on`. An app built with the `.4`
-change keeps eth2 at `192.168.0.4`, so the normal method works.
-
-SSH shows the same host key as before provisioning, under a different address.
-That's expected: provisioning doesn't change the keys.
-
-| Check | Command (as `nwhs`) | Expected (first run, app v2.0.8) |
+| Check | Command (on the HMI, as `nwhs`) | Expected (first run, app v2.0.8) |
 | --- | --- | --- |
 | Panel | Look at it and touch it | The HPC GUI is shown, and touch works |
 | Hostname | `hostname` | `hpc` |
@@ -847,6 +928,26 @@ That's expected: provisioning doesn't change the keys.
 | App files | `ls -l ~/hpc-hmi/bin/` | `assets/`, `HPC_LinuxGUI`, `release-manifest.json`, and `settings.txt`, which the app created when it first started |
 | Installed versions | `cat /etc/hpc-release` | TODO: not yet run on hardware. Expected with the 2026-10-22 image and app v2.0.8: `HPC_APP=v2.0.8`, `HPC_APP_COMMIT=e8e007c9…`, `HPC_SETUP=setup-v1.0.0`, `HPC_GOLDEN=unknown`, plus two dates |
 | Installer log | `sudo grep -iE 'error\|fail' /var/log/hpc-stock-installer.log` | Nothing from the successful run. The log keeps every run, so errors from earlier failed runs still show |
+
+> **Note:** reaching the HMI with app v2.0.8 or earlier. These versions move
+> eth2 to `192.168.0.1` when the app starts. Many routers also use that address,
+> so on a laptop that's also on Wi-Fi, turn Wi-Fi off and use an address for the
+> whole `192.168.0.x` range:
+> ```bash
+> # on the laptop
+> nmcli radio wifi off
+> nmcli con add type ethernet con-name hmi-eth2-wide ifname eno1 ipv4.method manual \
+>   ipv4.addresses 192.168.0.100/24 ipv4.never-default yes ipv6.method link-local
+> nmcli con up hmi-eth2-wide
+> ssh nwhs@192.168.0.1
+> ```
+> When you're done, get the laptop's Wi-Fi back with
+> `nmcli con down hmi-eth2-wide; nmcli radio wifi on`. An app built with the
+> `.4` change keeps eth2 at `192.168.0.4`, so the normal method works.
+
+> **Note:** with app v2.0.8 or earlier, SSH on the laptop may warn that the
+> HMI's host key is already known under `192.168.0.4`. That's expected:
+> provisioning doesn't change the keys, only the address the app sets.
 
 ---
 
@@ -862,35 +963,49 @@ TODO: not yet done with a release newer than v2.0.8.
 1. Publish the new release to `hpc-releases` (see that repo's README) and
    update its `CURRENT` file if this release should become the default.
 2. Pull `hpc-releases`, then build a kit as in [2.1](#21-build-the-provisioning-usb).
-   The kit takes the app straight from `hpc-releases`; there's no separate
-   update command.
+
+> **Note:** the kit takes the app straight from `hpc-releases`; there's no
+> separate update command.
 
 ### 3.2 Technician: apply the kit to a provisioned HMI
 
-TODO: not yet run on hardware. In particular, confirm that the unit's
-`settings.txt` survives: note `sha256sum ~/hpc-hmi/bin/settings.txt` before the
-run, and compare it afterwards. If it changed, check the file's time with
+TODO: not yet run on hardware. In particular, confirm that the HMI's
+`settings.txt` survives: on the HMI, note `sha256sum ~/hpc-hmi/bin/settings.txt`
+before the run, and compare it afterwards. If it changed, check the file's time with
 `ls -l`; a time after the reboot means the app rewrote it, not the provisioner.
 
-Running the provisioner again is the update. It copies `bin/` from the USB over
-`/home/nwhs/hpc-hmi/bin/` and **deletes any other file in that folder**, with
-one exception: `settings.txt`, which holds this unit's configuration, is never
-replaced or deleted. It then rewrites the services and reboots.
+1. Plug the laptop into eth2 and log in with the
+   [normal method](#normal-method-the-hpc-port-eth2-at-19216804):
+   ```bash
+   # on the laptop
+   ssh nwhs@192.168.0.4                # or 192.168.0.1 while the HMI runs app v2.0.8 or earlier (see 2.3)
+   ```
+2. Plug the USB stick into the HMI, mount it and check the kit:
+   ```bash
+   # on the HMI
+   lsblk                               # find the stick, e.g. sda1
+   sudo mount /dev/sda1 /mnt && cd /mnt
+   cat KIT.txt; sha256sum -c --quiet SHA256SUMS && echo KIT OK
+   ```
+3. Run the provisioner (sudo asks for the `nwhs` password):
+   ```bash
+   # on the HMI, in /mnt
+   sudo python3 ./stock-hmi.py
+   ```
+4. After the reboot, do the checks in [2.3](#23-check-the-provisioned-hmi), and
+   confirm the new version on the HMI with
+   `grep release_version ~/hpc-hmi/bin/release-manifest.json`.
 
-```bash
-ssh nwhs@192.168.0.4                # or 192.168.0.1 while the HMI runs app v2.0.8 or earlier (see 2.3)
-sudo mount /dev/sda1 /mnt && cd /mnt
-cat KIT.txt; sha256sum -c --quiet SHA256SUMS && echo KIT OK
-sudo python3 ./stock-hmi.py         # use sudo directly: nwhs needs a password for sudo
-```
+> **Note:** running the provisioner again is the update. It copies `bin/` from
+> the USB over `/home/nwhs/hpc-hmi/bin/` and **deletes any other file in that
+> folder**, with one exception: `settings.txt`, which holds this unit's
+> configuration, is never replaced or deleted. It then rewrites the services and
+> reboots.
 
-Then do the checks in [2.3](#23-check-the-provisioned-hmi), and confirm the new
-version with `grep release_version ~/hpc-hmi/bin/release-manifest.json`.
-
-The bundled packages are built for Bookworm. On a unit with a different OS
-(for example Trixie), `dpkg` may refuse them; flashing the golden image first
-avoids this. An experimental `--patch` mode for later OS changes, such as log
-rotation, is in `dev_test/stock-hmi2.py` (see `dev_test/TODO.md`).
+> **Note:** the bundled packages are built for Bookworm. On a unit with a
+> different OS (for example Trixie), `dpkg` may refuse them; flashing the golden
+> image first avoids this. An experimental `--patch` mode for later OS changes,
+> such as log rotation, is in `dev_test/stock-hmi2.py` (see `dev_test/TODO.md`).
 
 ---
 
