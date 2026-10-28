@@ -8,6 +8,7 @@ import grp
 import json
 import logging
 import os
+import platform
 from pathlib import Path
 import pwd
 import re
@@ -19,7 +20,12 @@ import tempfile
 import traceback
 """
 This script assumes a stock OS is pre provissioned with:
-Bookworm, Debain 12, and drivers provided
+v=Mon Oct 26 02:35:32 PM EDT 2026
+1. check os version grep '^PRETTY_NAME=' /etc/os-release
+print(platform.freedesktop_os_release()["PRETTY_NAME"]) #platfrom: py v3.10 
+2. provide both bookworm, and trixie packages
+if pretty_name=
+
 user: pi
 pass: raspberry
 upon completion, pi user will not exist, replaced by nwhs
@@ -43,14 +49,6 @@ APP_PASSWORD_HASH = (
     "Iw1xKqS37Wg/wlI82ouLy0"
 )
 
-# I should re-think this, as an offline installer
-PACKAGES = (
-    "iptables",
-    "libpaho-mqtt1.3",
-    "libx11-dev",
-    "network-manager",
-    "openssh-server",
-)
 
 LOG_FILE = Path("/var/log/hpc-stock-installer.log")
 
