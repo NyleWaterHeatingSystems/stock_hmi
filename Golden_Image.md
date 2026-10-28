@@ -7,9 +7,7 @@
 # Image Birth: 10,28,2026
 # starting image: 2026-10-06-raspios-trixie-arm64.img
 # RAW GOLDEN.img, Compressed, archived Checksums:
-0b241f02addde0c3d7f0da7e231badbceee810daad0485f2ce86119fb0fe6ea6  GOLDEN.img
-4b3550a27155e3a8db4c053065366f1b5d73fa1a1dbba70be848885ca4bdfbab  GOLDEN_shrunk.img
-9502c985b2fe353c9b58a342ef3c9b70acbb438edbcba4f4d19d6755f3afabe3  GOLDEN_shrunk.img.xz
+
 
 
 
@@ -111,6 +109,13 @@ pi@raspberrypi:/etc/logrotate.d $ sudo systemctl mask apt-daily.service apt-dail
 
 - Disable NetworkMangager-wait-online service:  
 sudo systemctl disable --now NetworkManager-wait-online.service
+
+-Passwordless sudo
+pi@raspberrypi:~ $ printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$(id -un)" | sudo tee /etc/sudoers.d/010_pi-nopasswd >/dev/null
+pi@raspberrypi:~ $ sudo chmod 0440 /etc/sudoers.d/010_pi-nopasswd
+pi@raspberrypi:~ $ sudo visudo -c
+pi@raspberrypi:~ $ sudo -k
+pi@raspberrypi:~ $ sudo -n t
 
 # HOLD ALL Packages: apt isn't disabled, but updating installed pkgs with apt is. 
 # this applies to kernels as well. doesnt effect dpkg
