@@ -1,60 +1,74 @@
 # Create a preconfigured image without NYLE SYSTEMS Software installed.
-# Objective 1: Configure a more perfect starting OS Image.
-# Objective 2: Get OEM to ship hmis with this image.
-# Compatability: ED-HMI222-070c.  ED-HMI212-070c see service patch (Bottom)
-# Golden_Image creation, and change log from default PiOS:  
 
-# Image Birth: 10,28,2026
-# starting image: 2026-10-06-raspios-trixie-arm64.img
-# RAW GOLDEN.img, Compressed, archived Checksums:
-<pre>
+- **Objective 1:** Configure a more perfect starting OS Image.
+- **Objective 2:** Get OEM to ship hmis with this image.
+- **Compatability:** ED-HMI222-070c. ED-HMI212-070c — see service patch (Bottom).
 
+## Golden_Image creation, and change log from default PiOS
 
+- **Image Birth:** 10,28,2026
+- **Starting image:** `2026-10-06-raspios-trixie-arm64.img`
 
+### RAW GOLDEN.img, Compressed, archived Checksums
 
+```text
 
- 
+```
 
-# About:
+## About
+
+```console
 pi@raspberrypi:~ $ uname -a
 Linux raspberrypi 6.18.50+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (2026-09-11) aarch64
+```
 
-# Boot time: 13s
-# space freed: ~2GB
+- **Boot time:** 13s
+- **Space freed:** ~2GB
 
-# preconfigured: 
-- ssh
-user: pi
-pass: raspberry
+## Preconfigured
 
+- **ssh**
+- **User:** `pi`
+- **Pass:** `raspberry`
 
-# Created Files:
-/etc/logroate.d/hpc 
+## Created Files
 
+### `/etc/logroate.d/hpc`
+
+```conf
 /var/log/hpc/data/*/*/*.csv {
     daily
     maxsize 100M
     # keep 20 years of logs before a delete
-    rotate 7300 
+    rotate 7300
     compress
     nodelaycompress
     missingok
     notifempty
-    copytruncate  
+    copytruncate
 }
+```
 
-# Edited 
-- Changed /boot/firmware/config.txt
+## Edited
+
+### Changed `/boot/firmware/config.txt`
+
+```ini
 [all]
 dtoverlay=vc4-kms-dsi-edatec-panel-070c,interrupt=7
 dtoverlay=uart4
 dtoverlay=uart5
+```
 
-- Changed /boot/firmware/cmdline.txt 
+### Changed `/boot/firmware/cmdline.txt`
+
+```text
 console=serial0,115200 console=tty3 root=PARTUUID=1808c7b9-02 rootfstype=ext4 fsck.repair=yes rootwait quiet plymouth.ignore-serial-consoles
+```
 
+## Moved files
 
-# moved files:
+```bash
 sudo rsync -crt /usr/lib/linux-image-6.18.50+rpt-rpi-v8/broadcom/bcm27*.dtb /boot/firmware/
 sudo rsync -crt /usr/lib/linux-image-6.18.50+rpt-rpi-v8/overlays/*.dtb* \
     /usr/lib/linux-image-6.18.50+rpt-rpi-v8/overlays/README \
@@ -69,11 +83,15 @@ printf '%s\n' \
     'KERNEL=6.18.50+rpt-rpi-v8' \
     'INITRAMFS=6.18.50+rpt-rpi-v8' |
     sudo tee -a /etc/default/raspi-firmware
+```
 
-# Removed packages:
-geany, thony, sane, cups, rpi-connect, firefox, rpi-imager, bluez, chromium, chromium-l10n, rpi-chromium-mods
-pi@raspberrypi:/etc/logrotate.d $ sudo apt autoremove 
-REMOVING:                       
+## Removed packages
+
+`geany`, `thony`, `sane`, `cups`, `rpi-connect`, `firefox`, `rpi-imager`, `bluez`, `chromium`, `chromium-l10n`, `rpi-chromium-mods`
+
+```console
+$ sudo apt autoremove
+REMOVING:
   docutils-common     python3-docutils         python3-psutil
   geany-common        python3-html5lib         python3-roman
   libadwaita-1-0      python3-isort            python3-send2trash
@@ -86,43 +104,67 @@ REMOVING:
   python3-bs4         python3-orjson           zenity-common
   python3-cssselect   python3-parso
   python3-dill        python3-platformdirs
+```
 
-# Removed Files / Folders:
-- :~ $ rm -rf Downloads/ Music/ Videos/ Documents/ Pictures/ Templates/ Public/
+## Removed Files / Folders
 
-# Installed Packages:
+```console
+:~ $ rm -rf Downloads/ Music/ Videos/ Documents/ Pictures/ Templates/ Public/
+```
 
-     sudo apt install iptables libpaho-mqtt libpaho-mqtt-dev libx11-dev iptables libip6tc-dev 
+## Installed Packages
 
+```bash
+sudo apt install iptables libpaho-mqtt libpaho-mqtt-dev libx11-dev iptables libip6tc-dev
+```
 
-# OTHER CONFIG:
-- Disable Autoupdates  
-pi@raspberrypi:/etc/logrotate.d $ sudo tee /etc/apt/apt.conf.d/99disable-auto-updates >/dev/null <<'EOF'
+## OTHER CONFIG
+
+### Disable Autoupdates
+
+```console
+$ sudo tee /etc/apt/apt.conf.d/99disable-auto-updates >/dev/null <<'EOF'
 APT::Periodic::Enable "0";
 APT::Periodic::Update-Package-Lists "0";
 APT::Periodic::Download-Upgradeable-Packages "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
+```
 
+```bash
 sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer
 sudo systemctl mask apt-daily.service apt-daily-upgrade.service
+```
 
-- Disable NetworkMangager-wait-online service:  
+### Disable NetworkMangager-wait-online service
+
+```bash
 sudo systemctl disable --now NetworkManager-wait-online.service
+```
 
-- Configure Passwordless sudo
- printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$(id -un)" | sudo tee /etc/sudoers.d/010_pi-nopasswd >/dev/null
- sudo chmod 0440 /etc/sudoers.d/010_pi-nopasswd
- sudo visudo -c
+### Configure Passwordless sudo
 
-# add udev rule for auto enable ext4 automount
-addfile
- /etc/udev/rules.d/99-hmi-usb-automount.rules 
+```bash
+printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$(id -un)" | sudo tee /etc/sudoers.d/010_pi-nopasswd >/dev/null
+sudo chmod 0440 /etc/sudoers.d/010_pi-nopasswd
+sudo visudo -c
+```
+
+### Add udev rule for auto enable ext4 automount
+
+addfile `/etc/udev/rules.d/99-hmi-usb-automount.rules`
+
+```udev
 SUBSYSTEM=="block", SUBSYSTEMS=="usb", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_TYPE}=="ext4", ENV{UDISKS_AUTO}="1"
+```
 
+```bash
 sudo udevadm control --reload-rules
+```
 
-## Add a service to auto mount USB devices
+### Add a service to auto mount USB devices
+
+```bash
 mkdir -p ~/.local/bin ~/.config/autostart
 
 cat > ~/.local/bin/hmi-usb-open.py <<'PY'
@@ -166,32 +208,46 @@ Name=Open mounted USB folders
 Exec=/usr/bin/python3 $HOME/.local/bin/hmi-usb-open.py
 Terminal=false
 EOF
+```
 
-# Disable auto-login tty1 .. ah...wat?? 
-Reinsert the USB stick. Select Open in File Manager in the insertion dialog. 
-If a remember / don’t ask again checkbox appears, enable it before pressing OK.
+### Disable auto-login tty1 .. ah...wat??
 
-pi@raspberrypi:~ $ sudo mv /etc/systemd/system/getty@tty1.service.d/autologin.conf \
-        /etc/systemd/system/getty@tty1.service.d/autologin.conf.disabled
-pi@raspberrypi:~ $ sudo systemctl daemon-reload
-pi@raspberrypi:~ $ sudo systemctl restart getty@tty1.service
+Reinsert the USB stick. Select **Open in File Manager** in the insertion dialog.
+If a **remember / don’t ask again** checkbox appears, enable it before pressing **OK**.
 
+```console
+$ sudo mv /etc/systemd/system/getty@tty1.service.d/autologin.conf /etc/systemd/system/getty@tty1.service.d/autologin.conf.disabled
+$ sudo systemctl daemon-reload
+$ sudo systemctl restart getty@tty1.service
+```
 
-# HOLD ALL Packages: apt isn't disabled, but updating installed pkgs with apt is. 
-# this applies to kernels as well. doesnt effect dpkg
+### HOLD ALL Packages
+
+apt isn't disabled, but updating installed pkgs with apt is.
+
+This applies to kernels as well. doesnt effect dpkg
+
+```bash
 dpkg-query -W -f='${db:Status-Status} ${binary:Package}\n' |
     awk '$1 == "installed" {print $2}' |
     xargs -r sudo apt-mark hold
-    
-# Undo pkg holds:
+```
+
+### Undo All pkg holds
+
+```bash
 apt-mark showhold | xargs -r sudo apt-mark unhold
+```
 
+## ED-HMI2120-070C requires patching display bridge
 
+### Test Fix Ed-HMI2120-070C (temporary)
 
-# ED-HMI2120-070C requires patching display bridge:
-# Test Fix Ed-HMI2120-070C (temporary): 
-  sudo i2ctransfer -f -y 10 w2@0x27 0x11 0x01
+```bash
+sudo i2ctransfer -f -y 10 w2@0x27 0x11 0x01
+```
 
+```bash
 sudo tee /etc/systemd/system/ed-hmi-display-fix.service >/dev/null <<'EOF'
 [Unit]
 Description=Apply ED-HMI display register workaround
@@ -212,4 +268,4 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now ed-hmi-display-fix.service
-</pre>
+```
