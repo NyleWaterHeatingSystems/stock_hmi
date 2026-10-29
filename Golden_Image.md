@@ -210,10 +210,7 @@ Terminal=false
 EOF
 ```
 
-### Disable auto-login tty1 .. ah...wat??
-
-Reinsert the USB stick. Select **Open in File Manager** in the insertion dialog.
-If a **remember / don’t ask again** checkbox appears, enable it before pressing **OK**.
+### Disable auto-login tty1
 
 ```console
 $ sudo mv /etc/systemd/system/getty@tty1.service.d/autologin.conf /etc/systemd/system/getty@tty1.service.d/autologin.conf.disabled
