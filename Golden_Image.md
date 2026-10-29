@@ -7,7 +7,7 @@
 # Image Birth: 10,28,2026
 # starting image: 2026-10-06-raspios-trixie-arm64.img
 # RAW GOLDEN.img, Compressed, archived Checksums:
-
+<pre>
 
 
 
@@ -20,7 +20,7 @@ pi@raspberrypi:~ $ uname -a
 Linux raspberrypi 6.18.50+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (2026-09-11) aarch64
 
 # Boot time: 13s
-# space freed: ~1GB
+# space freed: ~2GB
 
 # preconfigured: 
 - ssh
@@ -71,7 +71,7 @@ printf '%s\n' \
     sudo tee -a /etc/default/raspi-firmware
 
 # Removed packages:
-geany, thony, sane, cups, rpi-connect, firefox, rpi-imager, bluez, 
+geany, thony, sane, cups, rpi-connect, firefox, rpi-imager, bluez, chromium, chromium-l10n, rpi-chromium-mods
 pi@raspberrypi:/etc/logrotate.d $ sudo apt autoremove 
 REMOVING:                       
   docutils-common     python3-docutils         python3-psutil
@@ -104,18 +104,78 @@ APT::Periodic::Download-Upgradeable-Packages "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 
-pi@raspberrypi:/etc/logrotate.d $ sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer
-pi@raspberrypi:/etc/logrotate.d $ sudo systemctl mask apt-daily.service apt-daily-upgrade.service
+sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer
+sudo systemctl mask apt-daily.service apt-daily-upgrade.service
 
 - Disable NetworkMangager-wait-online service:  
 sudo systemctl disable --now NetworkManager-wait-online.service
 
--Passwordless sudo
-pi@raspberrypi:~ $ printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$(id -un)" | sudo tee /etc/sudoers.d/010_pi-nopasswd >/dev/null
-pi@raspberrypi:~ $ sudo chmod 0440 /etc/sudoers.d/010_pi-nopasswd
-pi@raspberrypi:~ $ sudo visudo -c
-pi@raspberrypi:~ $ sudo -k
-pi@raspberrypi:~ $ sudo -n t
+- Configure Passwordless sudo
+ printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$(id -un)" | sudo tee /etc/sudoers.d/010_pi-nopasswd >/dev/null
+ sudo chmod 0440 /etc/sudoers.d/010_pi-nopasswd
+ sudo visudo -c
+
+# add udev rule for auto enable ext4 automount
+addfile
+ /etc/udev/rules.d/99-hmi-usb-automount.rules 
+SUBSYSTEM=="block", SUBSYSTEMS=="usb", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_TYPE}=="ext4", ENV{UDISKS_AUTO}="1"
+
+sudo udevadm control --reload-rules
+
+## Add a service to auto mount USB devices
+mkdir -p ~/.local/bin ~/.config/autostart
+
+cat > ~/.local/bin/hmi-usb-open.py <<'PY'
+import fcntl
+import os
+import subprocess
+from gi.repository import Gio, GLib
+
+# Prevent duplicate watchers.
+lock = open(os.path.join(os.environ["XDG_RUNTIME_DIR"],
+                         "hmi-usb-open.lock"), "w")
+try:
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    raise SystemExit(0)
+
+def mounted(monitor, mount):
+    volume = mount.get_volume()
+    if volume is None:
+        return
+    device = volume.get_identifier("unix-device")
+    folder = mount.get_root().get_path()
+    if not device or not folder:
+        return
+    result = subprocess.run(
+        ["udevadm", "info", "--query=property", "--name", device],
+        capture_output=True, text=True
+    )
+    if "ID_BUS=usb" in result.stdout.splitlines():
+        subprocess.Popen(["pcmanfm", folder])
+
+monitor = Gio.VolumeMonitor.get()
+monitor.connect("mount-added", mounted)
+GLib.MainLoop().run()
+PY
+
+cat > ~/.config/autostart/hmi-usb-open.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=Open mounted USB folders
+Exec=/usr/bin/python3 $HOME/.local/bin/hmi-usb-open.py
+Terminal=false
+EOF
+
+# Disable auto-login tty1 .. ah...wat?? 
+Reinsert the USB stick. Select Open in File Manager in the insertion dialog. 
+If a remember / don’t ask again checkbox appears, enable it before pressing OK.
+
+pi@raspberrypi:~ $ sudo mv /etc/systemd/system/getty@tty1.service.d/autologin.conf \
+        /etc/systemd/system/getty@tty1.service.d/autologin.conf.disabled
+pi@raspberrypi:~ $ sudo systemctl daemon-reload
+pi@raspberrypi:~ $ sudo systemctl restart getty@tty1.service
+
 
 # HOLD ALL Packages: apt isn't disabled, but updating installed pkgs with apt is. 
 # this applies to kernels as well. doesnt effect dpkg
@@ -128,7 +188,7 @@ apt-mark showhold | xargs -r sudo apt-mark unhold
 
 
 
-# ED-HMI2120-070C still requires patching display bridge:
+# ED-HMI2120-070C requires patching display bridge:
 # Test Fix Ed-HMI2120-070C (temporary): 
   sudo i2ctransfer -f -y 10 w2@0x27 0x11 0x01
 
@@ -152,4 +212,4 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now ed-hmi-display-fix.service
-
+</pre>
