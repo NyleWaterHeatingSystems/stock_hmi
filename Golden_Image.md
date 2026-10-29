@@ -25,6 +25,22 @@ b66a9ff13403acfd58d0c329fe3c02f6251566945ce871b8825e87a7dd7d1c8e  GOLDEN_shrunk.
 -rw-r--r--  1 eri eri 1.2G Oct 29 10:45 GOLDEN_shrunk.img.xz
 ```
 
+# OS file Verification:
+```verify
+cd /
+find . -path './home/pi' -prune -o -printf '%y %p\n' | LC_ALL=C sort > /tmp/tree.txt
+sha256sum /tmp/tree.txt
+
+sha256sum /tmp/tree.txt
+f2921b07661a7a4366d789fa19c44c281a3e71a67bf231c35afd5401e1de7a08  /tmp/tree.txt
+```
+**there might be better methods**
+[-] wouldnt catch files replaced with files of the same name.
+[+] catch missing, or additional files. 
+[+] A diff on tree.txt would tell you which files. 
+[+] runs fast. 
+[+] could be run in the future. .. (post install with some adjustments.)
+
 ## About 
 
 **Kernel**
