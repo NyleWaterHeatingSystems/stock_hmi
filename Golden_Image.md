@@ -12,11 +12,22 @@
 ### RAW GOLDEN.img, Compressed, archived Checksums
 
 ```text
+71a36a7a24529c2d7db39bac8f381bd1b6155349e021e00db1358f6d136a8300  GOLDEN.img
+77c6411867850938392d0132b33b83b19f9d034eeb1abd714956b5c3c029e4be  GOLDEN_shrunk.img
+b66a9ff13403acfd58d0c329fe3c02f6251566945ce871b8825e87a7dd7d1c8e  GOLDEN_shrunk.img.xz
 
 ```
+**Image sizes:**
+```bash
+~/Desktop/GOLDEN$ ls -alh
+-rw-r--r--  1 eri eri  30G Oct 29 10:40 GOLDEN.img
+-rw-r--r--  1 eri eri 8.5G Oct 29 10:45 GOLDEN_shrunk.img
+-rw-r--r--  1 eri eri 1.2G Oct 29 10:45 GOLDEN_shrunk.img.xz
+```
 
-## About
+## About 
 
+**Kernel**
 ```console
 pi@raspberrypi:~ $ uname -a
 Linux raspberrypi 6.18.50+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (2026-09-11) aarch64
