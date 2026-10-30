@@ -65,6 +65,22 @@ GOLDEN_shrunk.img: FAILED
 sha256sum: WARNING: 1 computed checksum did NOT match
 ```
 
+**disk enumeration at unexpected loaction**
+```wrong
+$ sudo umount /dev/sda1 /dev/sda2
+umount: /dev/sda1: no mount point specified.
+umount: /dev/sda2: umount failed: Invalid argument.
+### WEIRD Response right? 
+### Your disk might be enumerated at an unexpected location
+```
+
+```normal
+$ sudo umount /dev/sdb1 /dev/sdb2
+$ sudo umount /dev/sdb1 /dev/sdb2
+umount: /dev/sdb1: not mounted.
+umount: /dev/sdb2: not mounted.
+```
+
 
 
 
