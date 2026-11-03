@@ -1,0 +1,66 @@
+<object className="UIVIEW" frame="0,0,800,480"  backgroundColor="WHITE">
+
+  <object className="UISTATUSBARVIEW" frame="0,0,800,90" text="System Info"  color  ="BLUE"/>
+
+
+  
+  
+  <object runtimeID ="30000" className="UISCROLLVIEW" frame="10,105,780,280" pixelSkip="70" numItems="10" backgroundColor="WHITE">
+    
+    
+    <object                          className="UIVIEW" frame="0,0, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>      
+      <object  runtimeID="30001"  className="UILABELVIEW" frame="14,2, 740, 66" backgroundColor="GRAY" text=" ExC SN:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+    </object>
+    <object                          className="UIVIEW" frame="0,70, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>
+      <object  runtimeID="30002"  className="UILABELVIEW" frame="14,2, 740, 66" backgroundColor="GRAY" text=" ExC Manufacture Date:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+    </object>
+    <object                          className="UIVIEW" frame="0,140, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>
+      <object  runtimeID="30003"  className="UILABELVIEW" frame="14,2, 740, 66" backgroundColor="GRAY" text=" ExC Firmware Version:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+    <object                          className="UIVIEW" frame="0,210, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>    
+      <object  runtimeID="30004"  className="UILABELVIEW" frame="14,2, 740, 66" backgroundColor="GRAY" text=" Implant SN:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+    </object>
+    <object                          className="UIVIEW" frame="0,280, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>
+      <object  runtimeID="30005"  className="UILABELVIEW" frame="14,2, 740, 66" backgroundColor="GRAY" text=" Implant Manufacture Date:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+    </object>
+    <object                          className="UIVIEW" frame="0,350, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>
+      <object  runtimeID="30006"  className="UILABELVIEW" frame="14,2, 740, 66" backgroundColor="GRAY" text=" Implant Firmware Version:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+    </object>
+    <object                          className="UIVIEW" frame="0,420, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>
+      <object  runtimeID="30007"  className="UILABELVIEW" frame="14,2, 740, 66" backgroundColor="GRAY" text=" Implant Max Force Setpoint:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+    <object                          className="UIVIEW" frame="0,490, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>
+      <object  runtimeID="30008"  className="UILABELVIEW" frame="14,2, 740, 66" backgroundColor="GRAY" text=" Implant Location:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+    <object                          className="UIVIEW" frame="0,560, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>
+      <object  runtimeID="30009"  className="UILABELVIEW" frame="14,2, 660, 66" backgroundColor="GRAY" text=" System Date:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+      <object runtimeID="30012" className="UIBUTTONVIEW" frame="718,11,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+    </object>
+
+    <object                          className="UIVIEW" frame="0,630, 800, 70" backgroundColor="WHITE">
+      <object  className="UIVIEW" frame="10,2, 760, 66" backgroundColor="GRAY"/>
+      <object  runtimeID="30010"  className="UILABELVIEW" frame="14,2, 660, 66" backgroundColor="GRAY" text=" System Time:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
+      <object runtimeID="30011" className="UIBUTTONVIEW" frame="718,11,48,48"    backgroundImageForHighlightedState="edit_pressed.dts" backgroundImageForNormalState="edit_normal.dts" backgroundImageForDisabledState="circle_disabled.dts"/>
+
+      </object>
+
+
+  </object>
+
+  <object  className="UISOFTKEYVIEW"  frame="0,390,480,70" />
+
+
+</object>
+

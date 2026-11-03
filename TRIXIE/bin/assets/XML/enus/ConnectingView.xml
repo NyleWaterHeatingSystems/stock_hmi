@@ -1,0 +1,77 @@
+<object runtimeID ="200" className="UIVIEW" frame="0,0,800,480" backgroundColor="WHITE">
+
+
+
+
+  <object runtimeID="201" className="UIVIEW" frame="0,0,800,480" backgroundColor="WHITE">
+
+    <object className="UISTATUSBARVIEW" frame="0,0,800,90" text="System Status: Not Connected" color="GRAY"/>
+
+    <object  className="UILABELVIEW" frame="247,174, 250, 100"  text="Place ExC directly over implant location." textColor="BLACK" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+
+
+   
+    <object runtimeID="202" className="UIBUTTONVIEW"  frame="140,316,185,76"   backgroundImageForHighlightedState="button_pressed.dts" backgroundImageForNormalState="button_normal.dts" >
+      <object  className="UILABELVIEW" frame="0,0, 185, 76"  text="Next" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+    <object runtimeID="203" className="UIBUTTONVIEW"  frame="490,316,185,76"   backgroundImageForHighlightedState="button_pressed.dts" backgroundImageForNormalState="button_normal.dts" >
+      <object  className="UILABELVIEW" frame="0,0, 185, 76"  text="Cancel" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+  </object>
+
+
+  <object runtimeID="204" className="UIVIEW" frame="0,0,800,480" hide="1" backgroundColor="WHITE">
+
+    <object className="UISTATUSBARVIEW" frame="0,0,800,90" text="System Status: Not Connected" color="GRAY"/>
+
+    <object  className="UILABELVIEW" frame="247,174, 300, 100"  text="Connecting to the implant .... Do not move the External Controller." textColor="BLACK" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+
+    <object runtimeID="506" className="UIPROGRESSVIEW" frame="269,270,262,28"/>
+    
+
+    <object runtimeID="203" className="UIBUTTONVIEW"  frame="310,316,185,76"   backgroundImageForHighlightedState="button_pressed.dts" backgroundImageForNormalState="button_normal.dts" >
+      <object  className="UILABELVIEW" frame="0,0, 185, 76"  text="Cancel" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+  </object>
+
+
+  <object runtimeID="205" className="UIVIEW" frame="0,0,800,480" hide="1" backgroundColor="WHITE">
+
+    <object className="UISTATUSBARVIEW" frame="0,0,800,90" text="System Status: Not Connected" color="GRAY" />
+
+    <object  className="UILABELVIEW" frame="247,174, 300, 100"  text="Connection Failed ..... Place External Controller directly over implant and try again." textColor="BLACK" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+
+
+    <object runtimeID="206" className="UIBUTTONVIEW"  frame="140,316,185,76"   backgroundImageForHighlightedState="button_pressed.dts" backgroundImageForNormalState="button_normal.dts" >
+      <object  className="UILABELVIEW" frame="0,0, 185, 76"  text="Retry" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+    <object runtimeID="203" className="UIBUTTONVIEW"  frame="490,316,185,76"   backgroundImageForHighlightedState="button_pressed.dts" backgroundImageForNormalState="button_normal.dts" >
+      <object  className="UILABELVIEW" frame="0,0, 185, 76"  text="Cancel" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+  </object>
+
+
+  <object runtimeID="207" className="UIVIEW" frame="0,0,800,480" hide="1" backgroundColor="WHITE">
+
+    <object className="UISTATUSBARVIEW" frame="0,0,800,90" text="System Status: Connected" color="GREEN"/>
+
+    <object  className="UILABELVIEW" frame="247,174, 300, 100"  text="Connection Successful. Do not move External Controller until treatment is complete." textColor="BLACK" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+
+    <object runtimeID="208" className="UIBUTTONVIEW"  frame="310,316,185,76"   backgroundImageForHighlightedState="button_pressed.dts" backgroundImageForNormalState="button_normal.dts" >
+      <object  className="UILABELVIEW" frame="0,0, 185, 76"  text="Next" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+    
+
+  </object>
+
+
+
+
+
+</object>
+

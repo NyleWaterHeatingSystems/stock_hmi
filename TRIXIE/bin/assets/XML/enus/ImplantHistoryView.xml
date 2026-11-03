@@ -1,0 +1,15 @@
+<object className="UIVIEW" frame="0,0,800,480"  backgroundColor="WHITE">
+
+  <object className="UISTATUSBARVIEW" frame="0,0,800,90" text="Implant History"  color  ="BLUE"/>
+
+
+
+    
+  <object runtimeID ="30000" className="UITABLEVIEW" frame="20,105,760,280"  backgroundColor="WHITE">
+  </object>
+
+  <object  className="UISOFTKEYVIEW"  frame="0,390,480,70" />
+
+
+</object>
+

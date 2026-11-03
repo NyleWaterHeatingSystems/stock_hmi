@@ -13,21 +13,23 @@
 	This procedure configures a new stock HMI with the current HPC interface software. The provided USB provisioning media contains the application, required dependencies, and automated installer. No internet connection, additional hardware, or manual file copying is required.
 \end{abstract}
 
+
 \section{Turn on the HMI}
 Providing power to the HMI should start the HMI. When it is fully loaded, you will see a desktop. The HMI may take approximately 30 seconds to boot initially.
 
 \section{Insert the HPC HMI provisional media}
-Insert the HPC HMI provisional media into any of the available USB type A connectors.The USB stick will auto mount. Select open,  then double click on the "stock-hmi" application. 
+Insert the HPC HMI provisional media into any of the available USB type A connectors. The USB stick will auto mount. Select open,  then double tap on the "stock-hmi" application. 
 
-The application will run, and the HMI may reboot in the process. When it is complete, you will see the HPC HMI Graphical user interface. 
+The application will run, and the HMI will reboot in the process. When it is complete, you will see the HPC HMI Graphical user interface. 
 
 Remove your HPC HMI provisional media.
-
+\newpage
 \section*{Creating Replacement HMI Provisioning Media}
 
 If your HPC HMI provisioning media is lost, damaged, or otherwise unusable, create a replacement USB drive as follows:
 
 \begin{enumerate}
+	\item insert and format your USB stick as \textbf{exfat}
 	\item On your PC, go to:\par
 	[
 	\url{https://github.com/NyleWaterHeatingSystems/stock_hmi}
@@ -37,7 +39,7 @@ If your HPC HMI provisioning media is lost, damaged, or otherwise unusable, crea
 	
 	\item Open the extracted folder and navigate to the \texttt{BOOKWORM} directory.
 	
-	\item Insert a blank USB drive and copy the \emph{contents} of the \texttt{BOOKWORM} directory to the top level of the USB drive.
+	\item copy \emph{contents} of the \texttt{TRIXIE} directory to the top level of the USB drive.
 	
 	\item Safely eject the USB drive.
 	
@@ -45,5 +47,21 @@ If your HPC HMI provisioning media is lost, damaged, or otherwise unusable, crea
 
 The USB drive is now ready to provision an HPC HMI.
 
+\newpage
+\section*{Maintaining The Stock\_HMI repo}
+\begin{enumerate}
+	\item git clone the repo
+	\item cd stock\_HMI
+	\item python3 stock-hmi.py --update
+	
+	\item 	additional debian packages should be added to debs folder.
+	        installation will be automatic. 
+	
+	\item git status
+	\item add any updated sources git add .
+	\item git commit -m "update sources"
+	\item git push
+	\end{enumerate}
 
+	The provissers will now have the most current sources to the HMI software
 \end{document}

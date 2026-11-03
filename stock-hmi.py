@@ -19,7 +19,7 @@ import time
 import tempfile 
 import traceback
 """
-This script assumes a stock OS is pre provissioned with:
+This script assumes a stock OS is pre provissioned with: linux, 
 v=Mon Oct 26 02:35:32 PM EDT 2026
 1. check os version grep '^PRETTY_NAME=' /etc/os-release
 print(platform.freedesktop_os_release()["PRETTY_NAME"]) #platfrom: py v3.10 
@@ -87,8 +87,8 @@ def update_installer_payload():
     if not bin_directory.is_dir():
         raise RuntimeError(f"Missing installer payload directory: {bin_directory}")
 
-    if not settings_file.is_file():
-        raise RuntimeError(f"Missing settings file: {settings_file}")
+    #if not settings_file.is_file():
+        #raise RuntimeError(f"Missing settings file: {settings_file}")
 
     with tempfile.TemporaryDirectory(prefix="hpc-release-") as temp_name:
         temp_directory = Path(temp_name)
@@ -102,6 +102,8 @@ def update_installer_payload():
                 "clone",
                 "--depth",
                 "1",
+                "--filter=blob:none",
+                "--sparse",
                 "--branch",
                 "main",
                 "--no-tags",
@@ -111,7 +113,23 @@ def update_installer_payload():
             check=True,
         )
 
-        latest_directory = (repository_directory / "LATEST").resolve()
+        current_file = repository_directory / "CURRENT"
+        if not current_file.is_file():
+            raise RuntimeError(f"Release repository is missing CURRENT: {current_file}")
+
+        release_version = current_file.read_text(encoding="utf-8").strip()
+        if not re.fullmatch(r"v[0-9][A-Za-z0-9._+-]*", release_version):
+            raise RuntimeError(f"Invalid release label in CURRENT: {release_version!r}")
+
+        subprocess.run(
+            [
+                "git", "-C", str(repository_directory),
+                "sparse-checkout", "set", "--cone", f"versions/{release_version}",
+            ],
+            check=True,
+        )
+
+        latest_directory = repository_directory / "versions" / release_version
         manifest_file = latest_directory / "manifest.json"
 
         if not manifest_file.is_file():
@@ -123,7 +141,7 @@ def update_installer_payload():
             manifest = json.load(source)
 
         try:
-            release_version = manifest["release_version"]
+            manifest_version = manifest["release_version"]
             hmi_component = manifest["components"]["hmi"]
             release_filename = hmi_component["file"]
             expected_sha256 = hmi_component["sha256"].lower()
@@ -132,8 +150,13 @@ def update_installer_payload():
                 "The release manifest does not contain a valid HMI component"
             ) from error
 
-        # Prevent a manifest filename from escaping LATEST/.
-        if Path(release_filename).name != release_filename:
+        if manifest_version != release_version:
+            raise RuntimeError(
+                f"Manifest version {manifest_version!r} does not match CURRENT "
+                f"{release_version!r}"
+            )
+
+        if release_filename != f"hmi_{release_version}.bin":
             raise RuntimeError(
                 f"Invalid HMI filename in manifest: {release_filename}"
             )
@@ -169,15 +192,23 @@ def update_installer_payload():
         # Preserve settings.txt and any other installer-specific bin files.
         shutil.copytree(bin_directory, staged_bin)
 
-        staged_assets = staged_bin / "assets"
-
-        if staged_assets.exists():
-            shutil.rmtree(staged_assets)
-
-        shutil.copytree(release_assets, staged_assets)
+        # Copy every release file, replacing complete directories so removed
+        # assets do not survive an update. Keep the installer's local settings.
+        for source in latest_directory.iterdir():
+            if source.name == "settings.txt":
+                continue
+            destination = staged_bin / source.name
+            if destination.is_symlink() or destination.is_file():
+                destination.unlink()
+            elif destination.exists():
+                shutil.rmtree(destination)
+            if source.is_dir():
+                shutil.copytree(source, destination)
+            else:
+                shutil.copy2(source, destination)
 
         installed_binary = staged_bin / "HPC_LinuxGUI"
-        shutil.copy2(release_binary, installed_binary)
+        os.replace(staged_bin / release_filename, installed_binary)
         installed_binary.chmod(0o755)
 
         # Record exactly which upstream release supplied this payload.
@@ -312,6 +343,7 @@ def ensure_user() -> None:
         "video",
         "render",
         "input",
+        "plugdev",
         "dialout",
         "netdev",
         "gpio",
@@ -499,7 +531,7 @@ WantedBy=multi-user.target
 
 def configure_boot(app_dir: Path) -> None:
     existing_groups = []
-    for group_name in ("video", "render", "input", "dialout", "netdev", "gpio", "i2c", "spi"):
+    for group_name in ("video", "render", "input", "dialout", "netdev", "gpio", "i2c", "spi", "plugdev"):
         try:
             grp.getgrnam(group_name)
         except KeyError:
@@ -529,8 +561,8 @@ WantedBy=multi-user.target
 
     service_text = f"""[Unit]
 Description=HPC framebuffer HMI
-Wants=NetworkManager.service hmi-console.service
-After=NetworkManager.service hmi-console.service systemd-user-sessions.service
+Wants=NetworkManager.service 
+After=NetworkManager.service systemd-user-sessions.service
 
 [Service]
 Type=simple
@@ -644,7 +676,7 @@ def main() -> int:
         action="store_true",
         help=(
             "refresh bin/ from the release selected by "
-            "hpc-releases/LATEST, then exit"
+            "hpc-releases/CURRENT (versions/<label>/), then exit"
         ),
     )
 

@@ -1,0 +1,35 @@
+<object className="UIVIEW" frame="0,0,800,480"  backgroundColor="WHITE">
+
+  <object className="UISTATUSBARVIEW" frame="0,0,800,90" text="Settings"  color  ="BLUE"/>
+
+
+  <object runtimeID ="20000" className="UISCROLLVIEW" frame="10,105,780,280" pixelSkip="70" numItems="5" backgroundColor="WHITE">
+
+    <object runtimeID="10000" className="UIBUTTONVIEW"  frame="10,0,760,70"   backgroundImageForHighlightedState="large_button_pressed.dts" backgroundImageForNormalState="large_button_normal.dts" >
+      <object  className="UILABELVIEW" frame="10,0, 770, 70"  text="Implant History" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+    <object runtimeID="11000" className="UIBUTTONVIEW"  frame="10,70,760,70"  backgroundImageForHighlightedState="large_button_pressed.dts" backgroundImageForNormalState="large_button_normal.dts" >
+      <object  className="UILABELVIEW" frame="10,0, 770, 70"  text="System Info" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+    <object runtimeID="14000" className="UIBUTTONVIEW"  frame="10,140,760,70"  backgroundImageForHighlightedState="large_button_pressed.dts" backgroundImageForNormalState="large_button_normal.dts" >
+      <object  className="UILABELVIEW" frame="10,0, 770, 70"  text="Program Implant" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+    <object runtimeID="15000" className="UIBUTTONVIEW"  frame="10,210,760,70"   backgroundImageForHighlightedState="large_button_pressed.dts" backgroundImageForNormalState="large_button_normal.dts" >
+      <object  className="UILABELVIEW" frame="10,0, 770, 70"  text="Manufacture Mode" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+    <object runtimeID="16000" className="UIBUTTONVIEW"  frame="10,280,760,70"   backgroundImageForHighlightedState="large_button_pressed.dts" backgroundImageForNormalState="large_button_normal.dts" >
+      <object  className="UILABELVIEW" frame="10,0, 770, 70"  text="Engineering Debug" textColor="WHITE" textAlignmentFlags="14" font="Tiresias_PCfont28.sif"/>
+    </object>
+
+
+  </object>
+
+  <object className="UISOFTKEYVIEW"  frame="0,390,480,70" />
+
+
+</object>
+

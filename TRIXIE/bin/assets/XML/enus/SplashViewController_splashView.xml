@@ -1,0 +1,39 @@
+<object className="UIVIEW" frame="0,0,1024,600"  backgroundColor="WHITE">
+	<object runtimeID="2000" className="UIIMAGEVIEW" frame="0,0,1024,600"   imageName="logo.dts"/>
+	<object className="UIIMAGEVIEW" frame="0,0,1024,600"   imageName="logo.dts"/>
+	<object backgroundColor="7747" runtimeID="200000" className="UIIMAGEVIEW" frame="384,340,256,256"  animationInterval="50"
+			animationImage0="output-onlinegiftools_1.dts"
+			 animationImage1="output-onlinegiftools_2.dts"
+			 animationImage2="output-onlinegiftools_3.dts"
+			 animationImage3="output-onlinegiftools_4.dts"
+			 animationImage4="output-onlinegiftools_5.dts"
+			 animationImage5="output-onlinegiftools_6.dts"
+			 animationImage6="output-onlinegiftools_7.dts"
+			 animationImage7="output-onlinegiftools_8.dts"
+			 animationImage8="output-onlinegiftools_9.dts"
+			 animationImage9="output-onlinegiftools_10.dts"
+			 animationImage10="output-onlinegiftools_11.dts"
+			 animationImage11="output-onlinegiftools_12.dts"
+			 animationImage12="output-onlinegiftools_13.dts"
+			 animationImage13="output-onlinegiftools_14.dts"
+			 animationImage14="output-onlinegiftools_15.dts"
+             animationImage15="output-onlinegiftools_16.dts"
+             animationImage16="output-onlinegiftools_17.dts"
+             animationImage17="output-onlinegiftools_18.dts"
+			 animationImage18="output-onlinegiftools_19.dts"
+			 animationImage19="output-onlinegiftools_20.dts"
+             animationImage20="output-onlinegiftools_21.dts"
+             animationImage21="output-onlinegiftools_22.dts"
+             animationImage22="output-onlinegiftools_23.dts"
+             animationImage23="output-onlinegiftools_24.dts"
+             animationImage24="output-onlinegiftools_25.dts"
+             animationImage25="output-onlinegiftools_26.dts"
+             animationImage26="output-onlinegiftools_27.dts"
+             animationImage27="output-onlinegiftools_28.dts"
+             animationImage28="output-onlinegiftools_29.dts"
+			 animationImage29="output-onlinegiftools_30.dts"
+             animationImage30="output-onlinegiftools_31.dts"
+		  />
+
+</object>
+

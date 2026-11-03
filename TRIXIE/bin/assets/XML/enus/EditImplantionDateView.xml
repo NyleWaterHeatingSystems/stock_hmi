@@ -1,0 +1,13 @@
+<object className="UIVIEW" frame="0,0,800,480" backgroundColor="WHITE">
+
+  <object className="UISTATUSBARVIEW" frame="0,0,800,90" text="Edit Implantation Date"  color  ="BLUE"/>
+
+  <object className="UIDATEPICKERVIEW" frame="140,150,521,225"/>
+
+
+
+  <object className="UISOFTKEYVIEW"  frame="0,390,480,70" />
+
+
+</object>
+
