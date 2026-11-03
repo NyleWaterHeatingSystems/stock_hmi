@@ -1030,7 +1030,6 @@ before the run, and compare it afterwards. If it changed, check the file's time 
 | Release an `HPC_LinuxGUI` build with the per-port profiles (`eth0-hpc`, `eth1-mcp`, `eth2-bms`) and the `hmi_service` and `hmi_polkit_rules` manifest components (`make-usb-kit.py` refuses releases without them), then run the 2.3 network checks | [2.3](#23-check-the-provisioned-hmi) |
 | Check the controller's gateway (`HPC_Firmware/iot/src/ethernet_vars.h`) against the HMI's new `192.168.0.3` | [2.3](#23-check-the-provisioned-hmi) |
 | No port has a gateway or DNS, so a provisioned HMI has no route to NTP servers; `systemd-timesyncd` (golden image default) can't set the clock | [2.2](#22-run-the-provisioner) |
-| Confirm on a panel that `eth1-mcp` and `eth2-bms` come up on the right sockets with their hardware-path match (`usb-0:2` = eth1, `usb-0:3` = eth2; the `usb-0:2` path is recorded from the first build but no profile has used it yet) | [2.3](#23-check-the-provisioned-hmi), `stock-hmi.py` `NETWORK_PROFILES` |
 | Record which labelled socket on the case is eth2 (`usb-0:3`) | [1.5](#fixed-address-on-the-hpc-port-eth2) |
 | Test the update path (3.2), including that `settings.txt` survives | [3.2](#32-technician-apply-the-kit-to-a-provisioned-hmi) |
 | Script the pre-capture cleanup | [1.5](#clean-up-before-capturing) |

@@ -34,9 +34,8 @@ HMI_HOSTNAME = "hpc"
 # A port is an interface name, or a udev ID_PATH ("platform-...") to match the
 # socket by hardware path. eth1 and eth2 are two r8152 USB NICs whose names
 # follow USB enumeration order, so they are matched by path; eth0 is the CM4's
-# own bcmgenet port. Paths are from the first build (HOWTO_golden_image.md, 1.5);
-# the usb-0:3 one was in use there as eth2-hpc.
-# TODO: confirm both paths on the next panel (udevadm info -q property -p /sys/class/net/eth1).
+# own bcmgenet port. Paths checked on a panel with udevadm ID_PATH on the MCP
+# and BMS sockets (HOWTO_golden_image.md, 1.5).
 USB_PORT_PATH = "platform-fd500000.pcie-pci-0000:01:00.0-usb-0:{}:1.0"
 NETWORK_PROFILES = (
     ("eth0-hpc", "eth0", "192.168.0.3/24"),  # HPC control/iot board at 192.168.0.2
