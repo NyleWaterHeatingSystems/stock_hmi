@@ -30,7 +30,7 @@ stock_hmi/
 ├── VERSION               # setup version (semver), tagged setup-vX.Y.Z
 ├── BOOKWORM/             # setup payload for Debian 12 (Bookworm)
 │   ├── debs/             # offline .deb dependencies
-│   └── network/          # eth2-hpc.nmconnection: HPC port eth2 = 192.168.0.4
+│   └── network/          # eth2-hpc.nmconnection: golden image only (HOWTO 1.5)
 ├── golden_image/         # EDATEC install scripts used to build the golden image
 └── HOWTO_golden_image.md
 ```
@@ -43,20 +43,22 @@ repository, and `make-usb-kit.py` copies one in when it builds a kit.
 
 ```bash
 ./make-usb-kit.py /run/media/$USER/<USB>              # release named in hpc-releases/CURRENT
-./make-usb-kit.py /run/media/$USER/<USB> --release v2.0.8
+./make-usb-kit.py /run/media/$USER/<USB> --release vX.Y.Z
 ./make-usb-kit.py /run/media/$USER/<USB> --replace    # overwrite an existing kit
 ```
 
 By default it reads `../hpc-releases`; use `--releases PATH` for another
-checkout. It verifies the HMI binary against the release manifest, then writes:
+checkout. It verifies the HMI binary, `hmi.service` and the polkit rule against
+the release manifest, then writes. It refuses a release without `hmi_service`
+and `hmi_polkit_rules` components (v2.0.8 and earlier):
 
 ```text
 USB/
 ├── stock-hmi.py
 ├── VERSION
 ├── bin/                  # HPC_LinuxGUI, assets/, release-manifest.json
+├── system/               # hmi.service, hmi-networkmanager.rules (from the release)
 ├── debs/
-├── network/
 ├── KIT.txt               # setup version, release, stock_hmi commit and build time
 └── SHA256SUMS            # check on the HMI with: sha256sum -c SHA256SUMS
 ```

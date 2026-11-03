@@ -17,12 +17,11 @@ import sys
 import time
 import traceback
 """
-Runs on the HMI as root, from a kit built by make-usb-kit.py (bin/, debs/ and
-network/ next to this script). It assumes the golden image (see
+Runs on the HMI as root, from a kit built by make-usb-kit.py (bin/, system/
+and debs/ next to this script). It assumes the golden image (see
 HOWTO_golden_image.md): Bookworm (Debian 12) Lite with EDATEC's kernel and
 drivers, and a login user with passwordless sudo (pi on the golden image).
-Upon completion, every regular login user other than nwhs is removed, and
-HPC_LinuxGUI is given its network capabilities via setcap.
+Upon completion, every regular login user other than nwhs is removed.
 """
 
 APP_USER = "nwhs"
@@ -30,7 +29,22 @@ APP_USER = "nwhs"
 # in /etc/login.defs. System accounts and nobody (65534) fall outside it.
 REGULAR_UID_RANGE = range(1000, 60000)
 HMI_HOSTNAME = "hpc"
-HPC_PORT_PROFILE = "eth2-hpc.nmconnection"
+# NetworkManager profiles: (name, port, initial address). The app rewrites
+# eth1-mcp's address to 192.168.1.(unit number + 1)/24; .2 is unit 1.
+# A port is an interface name, or a udev ID_PATH ("platform-...") to match the
+# socket by hardware path. eth1 and eth2 are two r8152 USB NICs whose names
+# follow USB enumeration order, so they are matched by path; eth0 is the CM4's
+# own bcmgenet port. Paths are from the first build (HOWTO_golden_image.md, 1.5);
+# the usb-0:3 one was in use there as eth2-hpc.
+# TODO: confirm both paths on the next panel (udevadm info -q property -p /sys/class/net/eth1).
+USB_PORT_PATH = "platform-fd500000.pcie-pci-0000:01:00.0-usb-0:{}:1.0"
+NETWORK_PROFILES = (
+    ("eth0-hpc", "eth0", "192.168.0.3/24"),  # HPC control/iot board at 192.168.0.2
+    ("eth1-mcp", USB_PORT_PATH.format(2), "192.168.1.2/24"),  # eth1: MCP6 / MCPLA network
+    ("eth2-bms", USB_PORT_PATH.format(3), "192.168.2.253/24"),  # eth2: BMS network
+)
+MCP_NETWORK_PROFILE = "eth1-mcp"
+LEGACY_NETWORK_PROFILES = {"br0", "br0-port1", "br0-port2", "br0-static", "eth2-hpc"}
 MQTT_HOST = "127.0.0.1"
 AUTO_REBOOT = True
 
@@ -215,14 +229,11 @@ def install_application(source_dir: Path, app_dir: Path) -> None:
     if dependency_check.returncode != 0 or "not found" in combined_output:
         raise RuntimeError(f"HPC_LinuxGUI dependency check failed:\n{combined_output}")
 
-    installed_executable = app_dir / "HPC_LinuxGUI"
-    run(
-        [
-            command_path("setcap"),
-            "cap_net_admin,cap_net_raw+ep",
-            str(installed_executable),
-        ]
-    )
+    # hmi.service grants the app's capabilities (AmbientCapabilities). Exec of
+    # a binary with file capabilities clears the ambient set, so remove any
+    # left by earlier installers (rsync keeps an unchanged binary as it is).
+    # setcap -r fails on a binary that has none; that's fine.
+    run([command_path("setcap"), "-r", str(app_dir / "HPC_LinuxGUI")], check=False)
 
 def configure_hostname() -> None:
     run(["hostnamectl", "set-hostname", HMI_HOSTNAME])
@@ -243,34 +254,95 @@ def configure_hostname() -> None:
     hosts_path.write_text("\n".join(updated) + "\n", encoding="utf-8")
 
 
-def configure_hpc_port() -> None:
-    """Pin the HPC controller port to 192.168.0.4; see network/eth2-hpc.nmconnection."""
-    source = bundle_directory() / "network" / HPC_PORT_PROFILE
-    if not source.is_file():
-        raise RuntimeError(f"Missing network profile: {source}")
+def nmcli_lines(*args: str) -> list[str]:
+    result = subprocess.run(
+        [command_path("nmcli"), *args], check=True, capture_output=True, text=True
+    )
+    return [line for line in result.stdout.splitlines() if line]
 
-    destination = Path("/etc/NetworkManager/system-connections") / HPC_PORT_PROFILE
+
+def configure_network_profiles() -> None:
+    """Create one static profile per port; HPC_LinuxGUI only sets their addresses.
+
+    Names and addresses follow HPC_Firmware's
+    LinuxHMI/HPC_LinuxGUI/include/HPC_LinuxGUI/system/network_config_nmcli.h.
+    """
+    nmcli = command_path("nmcli")
+    run([nmcli, "connection", "reload"])
+
+    # Profiles from earlier installers (eth2-hpc) and app versions (the br0 bridge).
+    existing = nmcli_lines("-g", "NAME,UUID", "connection", "show")
+    bridges = {"br0"}
+    for line in existing:
+        name, _, uuid = line.rpartition(":")
+        if name == "br0":
+            bridges.add(uuid)
+    legacy = []
+    for line in existing:
+        name, _, uuid = line.rpartition(":")
+        master = nmcli_lines("-g", "connection.master", "connection", "show", uuid)
+        if name in LEGACY_NETWORK_PROFILES or (master and master[0] in bridges):
+            legacy.append(uuid)
+    for uuid in legacy:
+        run([nmcli, "connection", "delete", uuid])
+
+    names = {line.rpartition(":")[0] for line in nmcli_lines("-g", "NAME,UUID", "connection", "show")}
+    for name, port, cidr in NETWORK_PROFILES:
+        by_path = port.startswith("platform-")
+        settings = [
+            "connection.interface-name", "" if by_path else port,
+            "match.path", port if by_path else "",
+            "connection.autoconnect", "yes",
+            # Wins over any other profile for the port, e.g. "Wired connection 1".
+            "connection.autoconnect-priority", "100",
+            "ipv4.method", "manual",
+            "ipv4.gateway", "",
+            "ipv4.dns", "",
+            "ipv4.ignore-auto-dns", "yes",
+            "ipv4.never-default", "yes",
+            "ipv6.method", "disabled",
+        ]
+        if name not in names:
+            run([nmcli, "connection", "add", "type", "ethernet", "con-name", name,
+                 *settings, "ipv4.addresses", cidr])
+        elif name == MCP_NETWORK_PROFILE:
+            # The app has set this unit's unit-number address; keep it.
+            run([nmcli, "connection", "modify", name, *settings])
+        else:
+            run([nmcli, "connection", "modify", name, *settings, "ipv4.addresses", cidr])
+
+
+def install_system_file(name: str, destination: Path) -> None:
+    """Install a file from the kit's system/ directory (from the app release)."""
+    source = bundle_directory() / "system" / name
+    if not source.is_file():
+        raise RuntimeError(f"Missing release file: {source}")
     shutil.copyfile(source, destination)
     os.chown(destination, 0, 0)
-    # NetworkManager ignores keyfiles readable by other users.
-    destination.chmod(0o600)
-    run([command_path("nmcli"), "connection", "reload"])
+    destination.chmod(0o644)
+
+
+def configure_network_access() -> None:
+    # Lets nwhs (the app) change NetworkManager profiles without sudo; polkitd
+    # picks up new rules without a restart. Shipped with the app release
+    # (HPC_Firmware LinuxHMI/HPC_LinuxGUI/scripts/hmi-networkmanager.rules).
+    rules_directory = Path("/etc/polkit-1/rules.d")
+    if not rules_directory.is_dir():
+        raise RuntimeError(f"polkitd is not installed (no {rules_directory})")
+    install_system_file(
+        "hmi-networkmanager.rules", rules_directory / "50-hpc-hmi-networkmanager.rules"
+    )
 
 
 def configure_sudo_access() -> None:
     # Membership in sudo grants normal administrative access using the nwhs
-    # password. HPC_LinuxGUI invokes nmcli without a terminal, so that one
-    # command must remain passwordless.
+    # password. The app changes the network through polkit, so nothing is
+    # passwordless any more.
     # Remove the filename used by earlier revisions of this installer.
     Path(f"/etc/sudoers.d/{APP_USER}-networkmanager").unlink(missing_ok=True)
 
     sudoers = Path(f"/etc/sudoers.d/{APP_USER}-hpc")
-    sudoers.write_text(
-        f"{APP_USER} ALL=(ALL:ALL) ALL\n"
-        f"{APP_USER} ALL=(root) NOPASSWD: {command_path('nmcli')}\n"
-        f"{APP_USER} ALL=(root) NOPASSWD: {command_path('ip')}\n",
-        encoding="utf-8",
-    )
+    sudoers.write_text(f"{APP_USER} ALL=(ALL:ALL) ALL\n", encoding="utf-8")
     sudoers.chmod(0o440)
     run([command_path("visudo"), "--check", "--file", str(sudoers)])
 
@@ -400,36 +472,9 @@ WantedBy=multi-user.target
         encoding="utf-8",
     )
 
-    service_text = f"""[Unit]
-Description=HPC framebuffer HMI
-Wants=NetworkManager.service hmi-console.service
-After=NetworkManager.service hmi-console.service systemd-user-sessions.service
-
-[Service]
-Type=simple
-User=nwhs
-Group=nwhs
-SupplementaryGroups=video render input dialout netdev gpio i2c spi tty
-WorkingDirectory=/home/nwhs/hpc-hmi/bin
-Environment=HOME=/home/nwhs
-Environment="QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/touchscreen"
-Environment="TSLIB_TSDEVICE=/dev/input/touchscreen"
-Environment="SDL_MOUSEDEV=/dev/input/touchscreen"
-# Turn off cursor, and disable blinks
-ExecStartPre=+/bin/sh -c '/usr/bin/setterm --term linux --clear all --cursor off < /dev/tty1 > /dev/tty1'
-ExecStartPre=+/bin/sh -c 'echo 0 > /sys/class/graphics/fbcon/cursor_blink'
-ExecStart=/home/nwhs/hpc-hmi/bin/HPC_LinuxGUI 192.168.0.2
-Restart=always
-RestartSec=2
-StandardInput=null
-StandardOutput=journal
-StandardError=journal
-
-
-[Install]
-WantedBy=multi-user.target
-"""
-    Path("/etc/systemd/system/hmi.service").write_text(service_text, encoding="utf-8")
+    # The app's own unit, shipped with its release (HPC_Firmware
+    # LinuxHMI/HPC_LinuxGUI/scripts/hmi.service).
+    install_system_file("hmi.service", Path("/etc/systemd/system/hmi.service"))
 
     autologin_dir = Path("/etc/systemd/system/getty@tty1.service.d")
     autologin_dir.mkdir(parents=True, exist_ok=True)
@@ -550,7 +595,8 @@ def provision() -> None:
     install_application(source_dir, app_dir)
     record_app_release(app_dir)
     configure_hostname()
-    configure_hpc_port()
+    configure_network_profiles()
+    configure_network_access()
     configure_sudo_access()
     configure_touchscreen_udev()
     configure_boot(app_dir)

@@ -2,7 +2,7 @@
 """Assemble an offline provisioning kit (USB contents) for the HPC HMI.
 
 Runs on the maintainer's computer. Combines this repo's setup payload
-(stock-hmi.py, VERSION, debs/, network/) with one HMI release from a
+(stock-hmi.py, VERSION, debs/) with one HMI release from a
 local hpc-releases checkout, verified against the release manifest.
 """
 
@@ -24,8 +24,15 @@ RELEASE_NAME_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(-RC\d+)?$")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 
 # Everything this script writes at the top level of the kit; --replace removes
-# only these, so unrelated files on the stick are left alone.
-KIT_ENTRIES = ("stock-hmi.py", "VERSION", "bin", "debs", "network", "KIT.txt", "SHA256SUMS")
+# only these, so unrelated files on the stick are left alone. network/ is from
+# older kits and is no longer written.
+KIT_ENTRIES = ("stock-hmi.py", "VERSION", "bin", "system", "debs", "network", "KIT.txt", "SHA256SUMS")
+# Release manifest components installed outside the app directory, and their
+# names in the kit's system/ directory (stock-hmi.py installs them from there).
+SYSTEM_FILES = {
+    "hmi_service": "hmi.service",
+    "hmi_polkit_rules": "hmi-networkmanager.rules",
+}
 
 
 def calculate_sha256(filename: Path) -> str:
@@ -63,36 +70,48 @@ def resolve_release(releases: Path, name: str | None) -> Path:
     return release_directory
 
 
-def load_hmi_component(release_directory: Path) -> tuple[dict, Path]:
+def load_component(release_directory: Path, manifest: dict, component: str) -> Path:
+    """The release file for a manifest component, verified against its SHA-256."""
+    try:
+        release_filename = manifest["components"][component]["file"]
+        expected_sha256 = manifest["components"][component]["sha256"].lower()
+    except (KeyError, TypeError, AttributeError) as error:
+        hint = ""
+        if component in SYSTEM_FILES:
+            hint = " (v2.0.8 and earlier don't ship it; use a newer release)"
+        raise RuntimeError(
+            f"The release manifest does not contain a valid {component} component{hint}"
+        ) from error
+
+    # Prevent a manifest filename from escaping the release directory.
+    if Path(release_filename).name != release_filename:
+        raise RuntimeError(f"Invalid {component} filename in manifest: {release_filename}")
+
+    release_file = release_directory / release_filename
+    if not release_file.is_file():
+        raise RuntimeError(f"Release {component} file does not exist: {release_file}")
+
+    actual_sha256 = calculate_sha256(release_file)
+    if actual_sha256 != expected_sha256:
+        raise RuntimeError(
+            f"Release {component} SHA-256 verification failed:\n"
+            f"  Expected: {expected_sha256}\n"
+            f"  Actual:   {actual_sha256}"
+        )
+    return release_file
+
+
+def load_release(release_directory: Path) -> tuple[dict, dict[str, Path]]:
     manifest_file = release_directory / "manifest.json"
     if not manifest_file.is_file():
         raise RuntimeError(f"Release does not contain a manifest: {manifest_file}")
     manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
 
-    try:
-        release_filename = manifest["components"]["hmi"]["file"]
-        expected_sha256 = manifest["components"]["hmi"]["sha256"].lower()
-    except (KeyError, TypeError, AttributeError) as error:
-        raise RuntimeError("The release manifest does not contain a valid HMI component") from error
-
-    # Prevent a manifest filename from escaping the release directory.
-    if Path(release_filename).name != release_filename:
-        raise RuntimeError(f"Invalid HMI filename in manifest: {release_filename}")
-
-    release_binary = release_directory / release_filename
-    if not release_binary.is_file():
-        raise RuntimeError(f"HMI release binary does not exist: {release_binary}")
+    files = {component: load_component(release_directory, manifest, component)
+             for component in ("hmi", *SYSTEM_FILES)}
     if not (release_directory / "assets").is_dir():
         raise RuntimeError(f"HMI release assets do not exist: {release_directory / 'assets'}")
-
-    actual_sha256 = calculate_sha256(release_binary)
-    if actual_sha256 != expected_sha256:
-        raise RuntimeError(
-            "HMI binary SHA-256 verification failed:\n"
-            f"  Expected: {expected_sha256}\n"
-            f"  Actual:   {actual_sha256}"
-        )
-    return manifest, release_binary
+    return manifest, files
 
 
 def git_description(directory: Path) -> str:
@@ -137,9 +156,9 @@ def write_checksums(output: Path) -> None:
 def build_kit(output: Path, releases: Path, release_name: str | None, replace: bool) -> None:
     setup_version = read_setup_version()
     release_directory = resolve_release(releases, release_name)
-    manifest, release_binary = load_hmi_component(release_directory)
-    for required in (REPO_DIRECTORY / "stock-hmi.py",
-                     PAYLOAD_DIRECTORY / "debs", PAYLOAD_DIRECTORY / "network"):
+    manifest, release_files = load_release(release_directory)
+    release_binary = release_files["hmi"]
+    for required in (REPO_DIRECTORY / "stock-hmi.py", PAYLOAD_DIRECTORY / "debs"):
         if not required.exists():
             raise RuntimeError(f"Missing setup payload: {required}")
 
@@ -148,12 +167,16 @@ def build_kit(output: Path, releases: Path, release_name: str | None, replace: b
     shutil.copyfile(REPO_DIRECTORY / "stock-hmi.py", output / "stock-hmi.py")
     shutil.copyfile(REPO_DIRECTORY / "VERSION", output / "VERSION")
     copy_tree(PAYLOAD_DIRECTORY / "debs", output / "debs")
-    copy_tree(PAYLOAD_DIRECTORY / "network", output / "network")
 
     bin_directory = output / "bin"
     copy_tree(release_directory / "assets", bin_directory / "assets")
     shutil.copyfile(release_binary, bin_directory / "HPC_LinuxGUI")
     shutil.copyfile(release_directory / "manifest.json", bin_directory / "release-manifest.json")
+
+    system_directory = output / "system"
+    system_directory.mkdir()
+    for component, kit_name in SYSTEM_FILES.items():
+        shutil.copyfile(release_files[component], system_directory / kit_name)
 
     built = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     (output / "KIT.txt").write_text(

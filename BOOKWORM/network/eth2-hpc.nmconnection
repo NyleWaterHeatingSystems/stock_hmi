@@ -1,6 +1,9 @@
-# HPC controller port (eth2): always 192.168.0.4 (the controller is 192.168.0.2).
-# Installed into the golden image by hand (HOWTO_golden_image.md, 1.5) and
-# re-installed by stock-hmi.py on every provision/update, from this file.
+# Golden image only: eth2 = 192.168.0.4, so a freshly flashed HMI can be reached
+# before provisioning. Installed into the golden image by hand
+# (HOWTO_golden_image.md, 1.5). stock-hmi.py deletes it: a provisioned HMI has
+# eth0-hpc (eth0 = 192.168.0.3), eth1-mcp and eth2-bms instead.
+#
+# What follows describes HPC_LinuxGUI v2.0.8 and earlier.
 #
 # Named eth2-hpc on purpose: HPC_LinuxGUI deletes and recreates a profile of
 # this name (same address) every time it starts (HPC_Firmware

@@ -160,9 +160,11 @@ over a direct Ethernet cable. No router, Wi-Fi or internet is needed.
 
 #### Normal method: the HPC port (eth2) at 192.168.0.4
 
-Every HMI flashed with the golden image, and every provisioned HMI, has a fixed
-address on its **HPC controller port, eth2: `192.168.0.4/24`**. (The HPC
-controller itself is `192.168.0.2`.) To connect:
+Every HMI flashed with the golden image has a fixed address on **eth2:
+`192.168.0.4/24`**. (The HPC controller itself is `192.168.0.2`.) A
+**provisioned** HMI is different: the HPC cable is on **eth0**, and the HMI is
+**`192.168.0.3/24`** there; see [2.3](#23-check-the-provisioned-hmi). Use the
+same steps with that socket and address. To connect:
 
 1. Plug the laptop into the HMI's eth2 socket. In the field, unplug the
    controller's cable from that socket first, or put a small switch between
@@ -175,7 +177,7 @@ controller itself is `192.168.0.2`.) To connect:
    ```bash
    # on the laptop
    ssh pi@192.168.0.4          # a freshly flashed golden image
-   ssh nwhs@192.168.0.4        # a provisioned HMI
+   ssh nwhs@192.168.0.3        # a provisioned HMI, on eth0
    ```
 
 > **Tip:** on a Linux laptop with NetworkManager, save the address as a profile
@@ -772,10 +774,13 @@ The maintainer does this on the laptop (or any Linux PC) with `stock_hmi` and
    # on the laptop
    cd ~/nwhs/stock_hmi
    ./make-usb-kit.py /run/media/$USER/<USB>              # the release named in hpc-releases/CURRENT
-   ./make-usb-kit.py /run/media/$USER/<USB> --release v2.0.8 --replace   # a specific release, replacing an old kit
+   ./make-usb-kit.py /run/media/$USER/<USB> --release vX.Y.Z --replace   # a specific release, replacing an old kit
    ```
-   The script checks the app binary against the release's SHA-256 before
-   copying anything, then prints what went into the kit. For example:
+   The script checks the app binary, `hmi.service` and
+   `hmi-networkmanager.rules` against the release's SHA-256s before copying
+   anything, then prints what went into the kit. It refuses a release that
+   doesn't ship `hmi.service` and the polkit rule (v2.0.8 and earlier), since
+   this setup needs both. For example:
    ```
    built:     2026-10-23T16:20:29Z
    app:       v2.0.8 (hmi_v2.0.8.bin)
@@ -796,8 +801,8 @@ USB/
 ├── stock-hmi.py
 ├── VERSION       # setup version, e.g. 1.0.0
 ├── bin/          # HPC_LinuxGUI, assets/, release-manifest.json
+├── system/       # hmi.service, hmi-networkmanager.rules (from the release)
 ├── debs/         # offline packages: iptables, libip6tc2, libpaho-mqtt1.3
-├── network/      # eth2-hpc.nmconnection: eth2 = 192.168.0.4
 ├── KIT.txt       # what went into the kit (shown above)
 └── SHA256SUMS    # a checksum for every file (331 for v2.0.8)
 ```
@@ -893,14 +898,27 @@ The golden image has no desktop, so everything is done over SSH.
 > 2. creates the `nwhs` user with the standard password, in the `sudo`, `video`,
 >    `input` and other hardware groups;
 > 3. copies `bin/` to `/home/nwhs/hpc-hmi/bin/`, checks with `ldd` that every
->    library the app needs is present, and gives `HPC_LinuxGUI` permission to
->    change network settings (`cap_net_admin,cap_net_raw`);
+>    library the app needs is present, and removes any file capabilities an
+>    earlier installer set on `HPC_LinuxGUI` (they would cancel the ones
+>    `hmi.service` grants);
 > 4. sets the hostname to `hpc`;
-> 5. installs `network/eth2-hpc.nmconnection` again, so eth2 is `192.168.0.4`
->    even if something changed it;
-> 6. lets `nwhs` use sudo (with a password) and run `nmcli` and `ip` without one;
+> 5. creates one static NetworkManager profile per port (no gateway, no DNS,
+>    IPv6 off): `eth0-hpc` = `192.168.0.3/24` (the HPC controller link),
+>    `eth1-mcp` = `192.168.1.2/24` (MCP network; the app changes it to
+>    `192.168.1.<unit number + 1>`, and a rerun keeps the app's address) and
+>    `eth2-bms` = `192.168.2.253/24` (BMS network). `eth0-hpc` matches the
+>    port by name; `eth1-mcp` and `eth2-bms` match the USB socket by hardware
+>    path (`usb-0:2` and `usb-0:3`, see the port table in
+>    [1.5](#fixed-address-on-the-hpc-port-eth2)), since the two USB ports'
+>    names can swap. It deletes the old
+>    `eth2-hpc` and `br0` bridge profiles. The app only changes these
+>    profiles' addresses;
+> 6. installs the release's polkit rule as
+>    `/etc/polkit-1/rules.d/50-hpc-hmi-networkmanager.rules`, which lets `nwhs`
+>    (the app) change the NetworkManager profiles without sudo, and lets `nwhs`
+>    use sudo with its password (nothing passwordless);
 > 7. adds a udev rule that creates `/dev/input/touchscreen`;
-> 8. installs `hmi.service` (runs `HPC_LinuxGUI 192.168.0.2`) and
+> 8. installs the release's `hmi.service` (runs `HPC_LinuxGUI 192.168.0.2`) and
 >    `hmi-console.service`, sets up autologin on the panel, starts in text mode
 >    (`multi-user.target`) and keeps SSH on;
 > 9. locks every login user except `nwhs` (on the golden image, that's `pi`) and
@@ -913,8 +931,10 @@ The golden image has no desktop, so everything is done over SSH.
 
 ### 2.3 Check the provisioned HMI
 
-After the HMI reboots, log in from the laptop as `nwhs` (`ssh nwhs@192.168.0.4`,
-or `192.168.0.1` with app v2.0.8 or earlier; see the note below) and run these
+After the HMI reboots, move the HPC cable (or the laptop) to **eth0**, log in
+from the laptop as `nwhs` (`ssh nwhs@192.168.0.3`; on the laptop, use
+`ipv4.routes "192.168.0.3/32"` instead of `.4` in the
+[normal method](#normal-method-the-hpc-port-eth2-at-19216804)) and run these
 checks. The `pi` user no longer exists.
 
 | Check | Command (on the HMI, as `nwhs`) | Expected (first run, app v2.0.8) |
@@ -923,31 +943,23 @@ checks. The `pi` user no longer exists.
 | Hostname | `hostname` | `hpc` |
 | `pi` removed | `getent passwd pi \|\| echo "pi removed"` | `pi removed` |
 | App running | `systemctl --no-pager status hmi.service \| head -5` | `Active: active (running)`, since boot |
-| Network profiles | `nmcli -f NAME,DEVICE con show --active` | `br0 br0`, `eth2-hpc eth2`, `lo lo`, `br0-port1 eth0`, `br0-port2 eth1` (the app creates the `br0` profiles) |
-| eth2 address | `nmcli -g ipv4.addresses con show eth2-hpc` | `192.168.0.1/24` with v2.0.8. TODO: confirm `192.168.0.4/24` with an app built with the `.4` change |
+| Network profiles | `nmcli -f NAME,DEVICE con show --active` | `eth0-hpc eth0`, `lo lo`, and `eth1-mcp eth1` / `eth2-bms eth2` for ports with a cable in. No `br0` or `eth2-hpc`. TODO: not yet run on hardware |
+| Addresses | `nmcli -g NAME,ipv4.addresses con show \| grep -E '^eth'` | `eth0-hpc:192.168.0.3/24`, `eth1-mcp:192.168.1.<unit + 1>/24`, `eth2-bms:192.168.2.253/24` |
+| Network permission | `sudo ls /etc/polkit-1/rules.d/` | includes `50-hpc-hmi-networkmanager.rules`. TODO: not yet run on hardware |
+| No file capabilities | `/usr/sbin/getcap ~/hpc-hmi/bin/HPC_LinuxGUI` | nothing printed (the app's capabilities come from `hmi.service`) |
 | App files | `ls -l ~/hpc-hmi/bin/` | `assets/`, `HPC_LinuxGUI`, `release-manifest.json`, and `settings.txt`, which the app created when it first started |
 | Installed versions | `cat /etc/hpc-release` | TODO: not yet run on hardware. Expected with the 2026-10-22 image and app v2.0.8: `HPC_APP=v2.0.8`, `HPC_APP_COMMIT=e8e007c9…`, `HPC_SETUP=setup-v1.0.0`, `HPC_GOLDEN=unknown`, plus two dates |
 | Installer log | `sudo grep -iE 'error\|fail' /var/log/hpc-stock-installer.log` | Nothing from the successful run. The log keeps every run, so errors from earlier failed runs still show |
 
-> **Note:** reaching the HMI with app v2.0.8 or earlier. These versions move
-> eth2 to `192.168.0.1` when the app starts. Many routers also use that address,
-> so on a laptop that's also on Wi-Fi, turn Wi-Fi off and use an address for the
-> whole `192.168.0.x` range:
-> ```bash
-> # on the laptop
-> nmcli radio wifi off
-> nmcli con add type ethernet con-name hmi-eth2-wide ifname eno1 ipv4.method manual \
->   ipv4.addresses 192.168.0.100/24 ipv4.never-default yes ipv6.method link-local
-> nmcli con up hmi-eth2-wide
-> ssh nwhs@192.168.0.1
-> ```
-> When you're done, get the laptop's Wi-Fi back with
-> `nmcli con down hmi-eth2-wide; nmcli radio wifi on`. An app built with the
-> `.4` change keeps eth2 at `192.168.0.4`, so the normal method works.
+> **Note:** this network layout needs an app built with the per-port profiles
+> (`HPC_Firmware` `network_config_nmcli.h`, uncommitted as of 2026-11-03).
+> App v2.0.8 and earlier delete and recreate `eth2-hpc` (`192.168.0.1` on eth2)
+> and a `br0` bridge over eth0 and eth1 every time they start, which undoes it.
+> TODO: release that build, then run these checks on hardware.
 
-> **Note:** with app v2.0.8 or earlier, SSH on the laptop may warn that the
-> HMI's host key is already known under `192.168.0.4`. That's expected:
-> provisioning doesn't change the keys, only the address the app sets.
+> **Note:** SSH on the laptop may warn that the HMI's host key is already known
+> under `192.168.0.4`. That's expected: provisioning doesn't change the keys,
+> only the port and address.
 
 ---
 
@@ -974,11 +986,12 @@ TODO: not yet run on hardware. In particular, confirm that the HMI's
 before the run, and compare it afterwards. If it changed, check the file's time with
 `ls -l`; a time after the reboot means the app rewrote it, not the provisioner.
 
-1. Plug the laptop into eth2 and log in with the
-   [normal method](#normal-method-the-hpc-port-eth2-at-19216804):
+1. Plug the laptop into eth0 and log in with the
+   [normal method](#normal-method-the-hpc-port-eth2-at-19216804), using
+   `192.168.0.3`:
    ```bash
    # on the laptop
-   ssh nwhs@192.168.0.4                # or 192.168.0.1 while the HMI runs app v2.0.8 or earlier (see 2.3)
+   ssh nwhs@192.168.0.3                # an HMI provisioned before the per-port profiles: eth2, 192.168.0.4 or .1
    ```
 2. Plug the USB stick into the HMI, mount it and check the kit:
    ```bash
@@ -1014,8 +1027,10 @@ before the run, and compare it afterwards. If it changed, check the file's time 
 | Item | Where |
 | --- | --- |
 | Create a formal storage place for golden and release images; the current Google Drive folder may move | [1.6](#where-the-images-are-stored) |
-| Release an `HPC_LinuxGUI` build with eth2 at `192.168.0.4` (`HPC_Firmware` branch `eth2-static-192.168.0.4`), then confirm the 2.3 eth2 check | [1.5](#fixed-address-on-the-hpc-port-eth2), [2.3](#23-check-the-provisioned-hmi) |
-| Change the controller's gateway to `192.168.0.4` in `HPC_Firmware/iot/src/ethernet_vars.h` | [1.5](#fixed-address-on-the-hpc-port-eth2) |
+| Release an `HPC_LinuxGUI` build with the per-port profiles (`eth0-hpc`, `eth1-mcp`, `eth2-bms`) and the `hmi_service` and `hmi_polkit_rules` manifest components (`make-usb-kit.py` refuses releases without them), then run the 2.3 network checks | [2.3](#23-check-the-provisioned-hmi) |
+| Check the controller's gateway (`HPC_Firmware/iot/src/ethernet_vars.h`) against the HMI's new `192.168.0.3` | [2.3](#23-check-the-provisioned-hmi) |
+| No port has a gateway or DNS, so a provisioned HMI has no route to NTP servers; `systemd-timesyncd` (golden image default) can't set the clock | [2.2](#22-run-the-provisioner) |
+| Confirm on a panel that `eth1-mcp` and `eth2-bms` come up on the right sockets with their hardware-path match (`usb-0:2` = eth1, `usb-0:3` = eth2; the `usb-0:2` path is recorded from the first build but no profile has used it yet) | [2.3](#23-check-the-provisioned-hmi), `stock-hmi.py` `NETWORK_PROFILES` |
 | Record which labelled socket on the case is eth2 (`usb-0:3`) | [1.5](#fixed-address-on-the-hpc-port-eth2) |
 | Test the update path (3.2), including that `settings.txt` survives | [3.2](#32-technician-apply-the-kit-to-a-provisioned-hmi) |
 | Script the pre-capture cleanup | [1.5](#clean-up-before-capturing) |
