@@ -913,21 +913,27 @@ The golden image has no desktop, so everything is done over SSH.
 >    names can swap. It deletes the old
 >    `eth2-hpc` and `br0` bridge profiles. The app only changes these
 >    profiles' addresses;
-> 6. installs the release's polkit rule as
+> 6. installs `hpc-packet-mirror.service`, which sends a copy of every UDP
+>    datagram the HPC sends the HMI to the MCP network's broadcast address
+>    (`192.168.1.255`, `MIRROR_ADDRESS` in `stock-hmi.py`), on the HPC's source
+>    port. Status arrives on port 2326. The copies come from the HMI's
+>    `eth1-mcp` address, so a listener can tell units apart. A datagram is a
+>    run of the HPC's `0x55 0xAA` packets, not always exactly one;
+> 7. installs the release's polkit rule as
 >    `/etc/polkit-1/rules.d/50-hpc-hmi-networkmanager.rules`, which lets `nwhs`
 >    (the app) change the NetworkManager profiles without sudo, and lets `nwhs`
 >    use sudo with its password (nothing passwordless);
-> 7. adds a udev rule that creates `/dev/input/touchscreen`;
-> 8. installs the release's `hmi.service` (runs `HPC_LinuxGUI 192.168.0.2`) and
+> 8. adds a udev rule that creates `/dev/input/touchscreen`;
+> 9. installs the release's `hmi.service` (runs `HPC_LinuxGUI 192.168.0.2`) and
 >    `hmi-console.service`, sets up autologin on the panel, starts in text mode
 >    (`multi-user.target`) and keeps SSH on;
-> 9. locks every login user except `nwhs` (on the golden image, that's `pi`) and
->    **deletes them on the next boot**, along with their sudo rules;
-> 10. records the installed versions in `/etc/hpc-release` (`HPC_APP`,
+> 10. locks every login user except `nwhs` (on the golden image, that's `pi`) and
+>     **deletes them on the next boot**, along with their sudo rules;
+> 11. records the installed versions in `/etc/hpc-release` (`HPC_APP`,
 >     `HPC_APP_COMMIT` and `HPC_APP_DATE` after copying the app; `HPC_SETUP` and
 >     `HPC_SETUP_DATE` at the end, plus `HPC_GOLDEN=unknown` if the golden image
 >     didn't set it). Each step replaces only its own lines;
-> 11. logs everything to `/var/log/hpc-stock-installer.log`, then reboots.
+> 12. logs everything to `/var/log/hpc-stock-installer.log`, then reboots.
 
 ### 2.3 Check the provisioned HMI
 
@@ -946,6 +952,7 @@ checks. The `pi` user no longer exists.
 | Network profiles | `nmcli -f NAME,DEVICE con show --active` | `eth0-hpc eth0`, `lo lo`, and `eth1-mcp eth1` / `eth2-bms eth2` for ports with a cable in. No `br0` or `eth2-hpc`. TODO: not yet run on hardware |
 | Addresses | `nmcli -g NAME,ipv4.addresses con show \| grep -E '^eth'` | `eth0-hpc:192.168.0.3/24`, `eth1-mcp:192.168.1.<unit + 1>/24`, `eth2-bms:192.168.2.253/24` |
 | Network permission | `sudo ls /etc/polkit-1/rules.d/` | includes `50-hpc-hmi-networkmanager.rules`. TODO: not yet run on hardware |
+| Packet mirror | `systemctl is-active hpc-packet-mirror.service`, then on a device on the MCP socket `sudo tcpdump -ni <interface> udp port 2326` | `active`, and packets from `192.168.1.<unit + 1>` to `192.168.1.255`. TODO: not yet run on hardware |
 | No file capabilities | `/usr/sbin/getcap ~/hpc-hmi/bin/HPC_LinuxGUI` | nothing printed (the app's capabilities come from `hmi.service`) |
 | App files | `ls -l ~/hpc-hmi/bin/` | `assets/`, `HPC_LinuxGUI`, `release-manifest.json`, and `settings.txt`, which the app created when it first started |
 | Installed versions | `cat /etc/hpc-release` | TODO: not yet run on hardware. Expected with the 2026-10-22 image and app v2.0.8: `HPC_APP=v2.0.8`, `HPC_APP_COMMIT=e8e007c9…`, `HPC_SETUP=setup-v1.0.0`, `HPC_GOLDEN=unknown`, plus two dates |
@@ -1032,6 +1039,7 @@ before the run, and compare it afterwards. If it changed, check the file's time 
 | No port has a gateway or DNS, so a provisioned HMI has no route to NTP servers; `systemd-timesyncd` (golden image default) can't set the clock | [2.2](#22-run-the-provisioner) |
 | Record which labelled socket on the case is eth2 (`usb-0:3`) | [1.5](#fixed-address-on-the-hpc-port-eth2) |
 | Test the update path (3.2), including that `settings.txt` survives | [3.2](#32-technician-apply-the-kit-to-a-provisioned-hmi) |
+| Test the packet mirror on hardware, across a power cycle of the HMI and of the HPC, and check the MCP devices cope with the broadcast traffic | [2.3](#23-check-the-provisioned-hmi) |
 | Script the pre-capture cleanup | [1.5](#clean-up-before-capturing) |
 | Tag `setup-v1.0.0` once the `golden-image-usb-kit` branch is merged | `VERSION` |
 | Run the provisioner with `/etc/hpc-release` support on hardware and record the 2.3 output | [2.3](#23-check-the-provisioned-hmi) |

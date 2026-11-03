@@ -44,6 +44,9 @@ NETWORK_PROFILES = (
 )
 MCP_NETWORK_PROFILE = "eth1-mcp"
 LEGACY_NETWORK_PROFILES = {"br0", "br0-port1", "br0-port2", "br0-static", "eth2-hpc"}
+# Where hpc-packet-mirror re-addresses its copies: the MCP network's broadcast
+# address, so a listener on eth1-mcp needs no configuration on this side.
+MIRROR_ADDRESS = "192.168.1.255"
 MQTT_HOST = "127.0.0.1"
 AUTO_REBOOT = True
 
@@ -333,6 +336,96 @@ def configure_network_access() -> None:
     )
 
 
+def configure_packet_mirror() -> None:
+    """Copy every UDP datagram the HPC sends this HMI to MIRROR_ADDRESS, from every boot on."""
+    mirror_script = Path("/usr/local/sbin/hpc-packet-mirror")
+    # A userspace copy, not tc mirred: the copy needs a new address, which a
+    # kernel mirror would only put on the first fragment of a datagram (the IoT
+    # board sends up to 4096 bytes at once), and tc would have to name the MCP
+    # port. Here routing finds it from MIRROR_ADDRESS, as eth1 or eth2: eth1-mcp
+    # follows the USB socket, and the kernel name on that socket can change.
+    mirror_script.write_text(
+        f"""#!/usr/bin/python3
+\"\"\"Send a copy of each UDP datagram from the HPC to {MIRROR_ADDRESS}, on the HPC's source port.\"\"\"
+import socket
+import struct
+import time
+
+ETH_P_IP = 0x0800
+HPC = socket.inet_aton("192.168.0.2")
+HMI = socket.inet_aton("192.168.0.3")
+
+capture = socket.socket(socket.AF_PACKET, socket.SOCK_DGRAM, socket.htons(ETH_P_IP))
+capture.bind(("eth0", ETH_P_IP))
+mirror = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+mirror.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+# IP id -> fragments so far. They arrive in order, over one cable.
+incomplete = dict()
+
+while True:
+    try:
+        packet = capture.recv(65535)
+    except OSError:
+        # ENETDOWN when eth0 goes down; the socket resumes when it comes back.
+        time.sleep(1)
+        continue
+
+    if packet[9] != socket.IPPROTO_UDP or packet[12:16] != HPC or packet[16:20] != HMI:
+        continue
+
+    header_length = (packet[0] & 0x0F) * 4
+    total_length = struct.unpack_from("!H", packet, 2)[0]
+    identification, fragment = struct.unpack_from("!HH", packet, 4)
+    more_fragments = fragment & 0x2000
+    offset = (fragment & 0x1FFF) * 8
+    # total_length, not the end of the frame: short frames are padded.
+    data = packet[header_length:total_length]
+
+    if more_fragments or offset:
+        received = incomplete.pop(identification, b"")
+        if len(received) != offset:
+            continue
+        data = received + data
+        if more_fragments:
+            if len(incomplete) >= 16:
+                incomplete.clear()
+            incomplete[identification] = data
+            continue
+
+    source_port, _, udp_length = struct.unpack_from("!HHH", data)
+    try:
+        mirror.sendto(data[8:udp_length], ("{MIRROR_ADDRESS}", source_port))
+    except OSError:
+        # No address on the MCP port (no cable): nowhere to send this copy.
+        pass
+""",
+        encoding="utf-8",
+    )
+    mirror_script.chmod(0o755)
+
+    Path("/etc/systemd/system/hpc-packet-mirror.service").write_text(
+        f"""[Unit]
+Description=Copy packets from the HPC to {MIRROR_ADDRESS}
+After=NetworkManager.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart={mirror_script}
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+""",
+        encoding="utf-8",
+    )
+
+    run(["systemctl", "daemon-reload"])
+    run(["systemctl", "enable", "hpc-packet-mirror.service"])
+
+
 def configure_sudo_access() -> None:
     # Membership in sudo grants normal administrative access using the nwhs
     # password. The app changes the network through polkit, so nothing is
@@ -596,6 +689,7 @@ def provision() -> None:
     configure_hostname()
     configure_network_profiles()
     configure_network_access()
+    configure_packet_mirror()
     configure_sudo_access()
     configure_touchscreen_udev()
     configure_boot(app_dir)
