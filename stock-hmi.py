@@ -60,7 +60,7 @@ APP_PASSWORD_HASH = (
 
 LOG_FILE = Path("/var/log/hpc-stock-installer.log")
 # os-release style KEY=value record of what is installed: the golden image
-# writes HPC_GOLDEN, provisioning writes HPC_SETUP*, the app install HPC_APP*.
+# writes HPC_GOLDEN, provisioning writes HPC_SETUP_DATE, the app install HPC_APP*.
 RELEASE_INFO_FILE = Path("/etc/hpc-release")
 
 def frozen() -> bool:
@@ -600,16 +600,6 @@ def update_release_info(values: dict[str, str]) -> None:
     logging.info("Recorded in %s: %s", RELEASE_INFO_FILE, ", ".join(f"{k}={v}" for k, v in values.items()))
 
 
-def read_setup_version() -> str:
-    """The kit's VERSION file as "setup-vX.Y.Z", or "unknown" for an older kit."""
-    version_file = bundle_directory() / "VERSION"
-    if version_file.is_file():
-        for line in version_file.read_text(encoding="utf-8").splitlines():
-            if re.fullmatch(r"\d+\.\d+\.\d+", line.strip()):
-                return f"setup-v{line.strip()}"
-    return "unknown"
-
-
 def record_app_release(app_dir: Path) -> None:
     """Record the installed app's version and source commit from its release manifest."""
     manifest_file = app_dir / "release-manifest.json"
@@ -625,7 +615,7 @@ def record_app_release(app_dir: Path) -> None:
 
 
 def record_setup_release() -> None:
-    values = {"HPC_SETUP": read_setup_version(), "HPC_SETUP_DATE": utc_timestamp()}
+    values = {"HPC_SETUP_DATE": utc_timestamp()}
     # Golden images from before /etc/hpc-release existed (2026-10-22) have no HPC_GOLDEN.
     existing = RELEASE_INFO_FILE.read_text(encoding="utf-8") if RELEASE_INFO_FILE.is_file() else ""
     if not re.search(r"^HPC_GOLDEN=", existing, re.MULTILINE):

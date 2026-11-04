@@ -30,8 +30,7 @@ list of open items is in [Open items](#open-items) at the end.
 
 ## How the pieces fit together
 
-The HMI's software is built in three layers. Each layer changes at its own pace
-and has its own version:
+The HMI's software is built in three layers. Each layer changes at its own pace:
 
 | Layer | What it is | Where it lives | Changes |
 | --- | --- | --- | --- |
@@ -581,8 +580,8 @@ machine ID.
 > that no private key ends up in the image file.
 
 > **Note:** `/etc/hpc-release` records what's installed on a unit. The golden
-> image writes `HPC_GOLDEN`; provisioning adds the setup and app versions (see
-> 2.2). The 2026-10-22 image was built before this file existed, so units
+> image writes `HPC_GOLDEN`; provisioning adds the setup date and app version
+> (see 2.2). The 2026-10-22 image was built before this file existed, so units
 > flashed from it show `HPC_GOLDEN=unknown`.
 
 TODO: turn this cleanup into a script in the repo, so it can't be done
@@ -799,7 +798,7 @@ The kit contains:
 ```text
 USB/
 ├── stock-hmi.py
-├── VERSION       # setup version, e.g. 1.0.0
+├── hpc-gateway-ports.sh  # exposes the HPC to hpc-gateway; also runs alone
 ├── bin/          # HPC_LinuxGUI, assets/, release-manifest.json
 ├── hpc-usb-update.py  # installed on the HMI, for USB updates (3.3)
 ├── system/       # hmi.service, hmi-networkmanager.rules (from the release)
@@ -930,8 +929,8 @@ The golden image has no desktop, so everything is done over SSH.
 > 10. locks every login user except `nwhs` (on the golden image, that's `pi`) and
 >    **deletes them on the next boot**, along with their sudo rules;
 > 11. records the installed versions in `/etc/hpc-release` (`HPC_APP`,
->     `HPC_APP_COMMIT` and `HPC_APP_DATE` after copying the app; `HPC_SETUP` and
->     `HPC_SETUP_DATE` at the end, plus `HPC_GOLDEN=unknown` if the golden image
+>     `HPC_APP_COMMIT` and `HPC_APP_DATE` after copying the app; `HPC_SETUP_DATE`
+>     at the end, plus `HPC_GOLDEN=unknown` if the golden image
 >     didn't set it). Each step replaces only its own lines;
 > 12. logs everything to `/var/log/hpc-stock-installer.log`, then reboots.
 
@@ -955,7 +954,7 @@ checks. The `pi` user no longer exists.
 | Gateway ports | `systemctl is-active hpc-gateway-ports.service`, then `sudo sh hpc-gateway-ports.sh status` from the kit | `active`, `ip_forward: 1`, and DNAT rows for 5324 and 5325. TODO: not yet run on hardware |
 | No file capabilities | `/usr/sbin/getcap ~/hpc-hmi/bin/HPC_LinuxGUI` | nothing printed (the app's capabilities come from `hmi.service`) |
 | App files | `ls -l ~/hpc-hmi/bin/` | `assets/`, `HPC_LinuxGUI`, `release-manifest.json`, and `settings.txt`, which the app created when it first started |
-| Installed versions | `cat /etc/hpc-release` | TODO: not yet run on hardware. Expected with the 2026-10-22 image and app v2.0.8: `HPC_APP=v2.0.8`, `HPC_APP_COMMIT=e8e007c9…`, `HPC_SETUP=setup-v1.0.0`, `HPC_GOLDEN=unknown`, plus two dates |
+| Installed versions | `cat /etc/hpc-release` | TODO: not yet run on hardware. Expected with the 2026-10-22 image and app v2.0.8: `HPC_APP=v2.0.8`, `HPC_APP_COMMIT=e8e007c9…`, `HPC_GOLDEN=unknown`, plus two dates |
 | Installer log | `sudo grep -iE 'error\|fail' /var/log/hpc-stock-installer.log` | Nothing from the successful run. The log keeps every run, so errors from earlier failed runs still show |
 
 > **Note:** this network layout needs an app built with the per-port profiles
@@ -1088,7 +1087,6 @@ this HMI has, or is too old for this method. Use 3.2.
 | Test USB updates (3.3) on hardware: detection, the panel prompt, rollback, and a drive that also holds logs | [3.3](#33-updating-from-a-usb-drive) |
 | Later: update `control` and `iot` from USB too. The chips have app rollback on, but nothing calls `esp_ota_mark_app_valid_cancel_rollback()`, so an image installed over the air should revert on its next reset until new firmware confirms itself | [3.3](#33-updating-from-a-usb-drive) |
 | Script the pre-capture cleanup | [1.5](#clean-up-before-capturing) |
-| Tag `setup-v1.0.0` once the `golden-image-usb-kit` branch is merged | `VERSION` |
 | Run the provisioner with `/etc/hpc-release` support on hardware and record the 2.3 output | [2.3](#23-check-the-provisioned-hmi) |
-| Later: refuse an app whose manifest `requires_setup` is newer than the unit's `HPC_SETUP` | `stock-hmi.py` |
+| Move the setup into `HPC_Firmware`, versioned with the app (decided 2026-11-04; not started). stock_hmi's own setup version is gone. Until the move, `hpc-usb-update` refuses any release that sets `requires_setup`, and a unit's setup can't be identified; define a replacement as part of the move | `HPC_Firmware` |
 | Try the Windows "Internet Connection Sharing" fallback | [0](#fallback-the-laptop-as-a-dhcp-server) |

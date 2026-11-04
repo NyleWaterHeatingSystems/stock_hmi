@@ -29,7 +29,6 @@ stock_hmi/
 ├── hpc-usb-update.py     # installed on the HMI: installs releases from a USB drive
 ├── make-usb-kit.py       # builds the provisioning USB on the maintainer's PC
 ├── hpc-gateway-ports.sh  # exposes the HPC's variables to hpc-gateway; also runs alone
-├── VERSION               # setup version (semver), tagged setup-vX.Y.Z
 ├── BOOKWORM/             # setup payload for Debian 12 (Bookworm)
 │   ├── debs/             # offline .deb dependencies
 │   └── network/          # eth2-hpc.nmconnection: golden image only (HOWTO 1.5)
@@ -59,11 +58,10 @@ USB/
 ├── stock-hmi.py
 ├── hpc-usb-update.py
 ├── hpc-gateway-ports.sh
-├── VERSION
 ├── bin/                  # HPC_LinuxGUI, assets/, release-manifest.json
 ├── system/               # hmi.service, hmi-networkmanager.rules (from the release)
 ├── debs/
-├── KIT.txt               # setup version, release, stock_hmi commit and build time
+├── KIT.txt               # release, stock_hmi commit and build time
 └── SHA256SUMS            # check on the HMI with: sha256sum -c SHA256SUMS
 ```
 

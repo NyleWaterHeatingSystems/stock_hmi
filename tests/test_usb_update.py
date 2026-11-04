@@ -199,25 +199,12 @@ class Staging(UpdateTestCase):
         self.stage()
         self.assertEqual(self.status()["state"], "ready")
 
-    def test_requires_newer_setup_is_blocked_before_copying(self):
-        make_release(self.drive, "v2.0.11", requires_setup="setup-v1.2.0")
+    def test_requires_setup_is_blocked_before_copying(self):
+        make_release(self.drive, "v2.0.11", requires_setup="v2.1.0")
         self.scan()
         self.assertEqual(self.status()["state"], "blocked")
         self.assertIn("full USB kit", self.status()["message"])
         self.assertIsNone(updater.stage_ready())
-
-    def test_requires_met_setup_is_allowed(self):
-        for required in ("setup-v1.1.0", "setup-v1.0.9"):
-            shutil.rmtree(self.drive / "releases", ignore_errors=True)
-            make_release(self.drive, "v2.0.11", requires_setup=required)
-            self.stage()
-            self.assertEqual(self.status()["state"], "ready", required)
-
-    def test_unknown_setup_is_blocked_when_one_is_required(self):
-        updater.RELEASE_INFO_FILE.write_text("HPC_APP=v2.0.10\n")
-        make_release(self.drive, "v2.0.11", requires_setup="setup-v1.0.0")
-        self.scan()
-        self.assertEqual(self.status()["state"], "blocked")
 
     def test_corrupt_files_are_refused(self):
         for victim in ("hmi_v2.0.11.bin", "hmi.service", "assets/beep.wav"):

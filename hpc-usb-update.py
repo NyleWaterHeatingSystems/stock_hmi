@@ -62,7 +62,6 @@ APP_MOUNT_WAIT_SECONDS = 8
 HEALTH_CHECK_SECONDS = 30
 DEBS_TARGET = "bookworm-arm64"
 RELEASE_NAME_PATTERN = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:-RC(\d+))?$")
-SETUP_VERSION_PATTERN = re.compile(r"^setup-v(\d+)\.(\d+)\.(\d+)$")
 
 
 class UpdateError(Exception):
@@ -159,18 +158,9 @@ def update_release_info(values: dict[str, str]) -> None:
 
 
 def check_requires_setup(required: str | None) -> None:
-    if not required:
-        return
-    def parts(value: str) -> tuple[int, ...] | None:
-        match = SETUP_VERSION_PATTERN.match(value)
-        return tuple(int(part) for part in match.groups()) if match else None
-
-    wanted = parts(required)
-    if wanted is None:
-        raise UpdateError(f"Bad requires_setup: {required}"[:60])
-    have = parts(release_info().get("HPC_SETUP", ""))
-    if have is None or have < wanted:
-        raise UpdateError(f"Needs {required}. Use a full USB kit.")
+    # Any value blocks: the setup isn't versioned, so this can't tell what a unit has.
+    if required:
+        raise UpdateError(f"Needs {required}. Use a full USB kit."[:60])
 
 
 def component_file(release_dir: Path, manifest: dict, component: str) -> tuple[Path, str]:
