@@ -333,6 +333,11 @@ def configure_network_access() -> None:
     )
 
 
+def configure_gateway_ports() -> None:
+    # Standalone so an already provisioned unit can get it without a rerun.
+    run(["sh", str(bundle_directory() / "hpc-gateway-ports.sh"), "install"])
+
+
 def configure_sudo_access() -> None:
     # Membership in sudo grants normal administrative access using the nwhs
     # password. The app changes the network through polkit, so nothing is
@@ -596,6 +601,7 @@ def provision() -> None:
     configure_hostname()
     configure_network_profiles()
     configure_network_access()
+    configure_gateway_ports()
     configure_sudo_access()
     configure_touchscreen_udev()
     configure_boot(app_dir)

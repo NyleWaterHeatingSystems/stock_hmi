@@ -23,10 +23,13 @@ DEFAULT_RELEASES = REPO_DIRECTORY.parent / "hpc-releases"
 RELEASE_NAME_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(-RC\d+)?$")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 
+GATEWAY_PORTS_SCRIPT = "hpc-gateway-ports.sh"
 # Everything this script writes at the top level of the kit; --replace removes
 # only these, so unrelated files on the stick are left alone. network/ is from
 # older kits and is no longer written.
-KIT_ENTRIES = ("stock-hmi.py", "VERSION", "bin", "system", "debs", "network", "KIT.txt", "SHA256SUMS")
+KIT_ENTRIES = (
+    "stock-hmi.py", GATEWAY_PORTS_SCRIPT, "VERSION", "bin", "system", "debs", "network", "KIT.txt", "SHA256SUMS",
+)
 # Release manifest components installed outside the app directory, and their
 # names in the kit's system/ directory (stock-hmi.py installs them from there).
 SYSTEM_FILES = {
@@ -158,13 +161,16 @@ def build_kit(output: Path, releases: Path, release_name: str | None, replace: b
     release_directory = resolve_release(releases, release_name)
     manifest, release_files = load_release(release_directory)
     release_binary = release_files["hmi"]
-    for required in (REPO_DIRECTORY / "stock-hmi.py", PAYLOAD_DIRECTORY / "debs"):
+    for required in (
+        REPO_DIRECTORY / "stock-hmi.py", REPO_DIRECTORY / GATEWAY_PORTS_SCRIPT, PAYLOAD_DIRECTORY / "debs",
+    ):
         if not required.exists():
             raise RuntimeError(f"Missing setup payload: {required}")
 
     prepare_output(output, replace)
 
     shutil.copyfile(REPO_DIRECTORY / "stock-hmi.py", output / "stock-hmi.py")
+    shutil.copyfile(REPO_DIRECTORY / GATEWAY_PORTS_SCRIPT, output / GATEWAY_PORTS_SCRIPT)
     shutil.copyfile(REPO_DIRECTORY / "VERSION", output / "VERSION")
     copy_tree(PAYLOAD_DIRECTORY / "debs", output / "debs")
 
