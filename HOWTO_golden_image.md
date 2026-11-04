@@ -541,6 +541,34 @@ flashing, before provisioning. The address is defined in one file,
 >   wrong sockets. Matching by `ID_PATH`, as our profile does, avoids that.
 >   TODO: consider the same in the app.
 
+#### Turn off automatic updates
+
+> **Note:** these aren't in the 2026-10-22 image. They come from the Trixie image
+> on `main` (`Golden_Image.md`). TODO: not yet run on Bookworm; run them on the
+> next image, and check that a kit still installs its debs on held packages.
+
+1. Stop `apt` updating on its own:
+   ```bash
+   # on the HMI
+   sudo tee /etc/apt/apt.conf.d/99disable-auto-updates >/dev/null <<'EOF'
+   APT::Periodic::Enable "0";
+   APT::Periodic::Update-Package-Lists "0";
+   APT::Periodic::Download-Upgradeable-Packages "0";
+   APT::Periodic::Unattended-Upgrade "0";
+   EOF
+   sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer
+   sudo systemctl mask apt-daily.service apt-daily-upgrade.service
+   ```
+
+2. Hold every installed package, including the kernel:
+   ```bash
+   # on the HMI
+   dpkg-query -W -f='${db:Status-Status} ${binary:Package}\n' |
+       awk '$1 == "installed" {print $2}' |
+       xargs -r sudo apt-mark hold
+   ```
+   To undo it: `apt-mark showhold | xargs -r sudo apt-mark unhold`.
+
 #### Clean up before capturing
 
 Remove everything that is unique to this unit, so every HMI flashed from the
@@ -646,6 +674,10 @@ copy.
 
 > **If it fails:** if PiShrink's "Checking filesystem" step reports errors, the
 > copy is bad. Redo step 2.
+
+> **Note:** the ED-HMI2120-070C needs a display bridge workaround, which is in
+> `Golden_Image.md` on `main`. The ED-HMI2220-070C doesn't. TODO: not yet tried
+> with this image.
 
 #### Image records
 
