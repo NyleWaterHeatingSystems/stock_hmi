@@ -1,3 +1,15 @@
+# Don't add logrotate for /var/log/hpc/data
+
+The app already manages these logs, so this note's TODO is closed. Keep the rest for reference only.
+
+- `HPC_LinuxGUI` deletes the oldest finished logs itself when free space runs low (`log_delete_oldest_logs()` in
+  `HPC_Firmware` `LinuxHMI/HPC_LinuxGUI/src/app/logging.cpp`), and copies them to USB log drives.
+- It only sees files named `*.csv`. The config below empties each finished log and moves it to `*.csv.1.gz` (checked
+  by running it with logrotate on 2026-11-04). USB log drives then get empty files, and the app never deletes the
+  `.gz` files, so the disk can fill.
+
+The Trixie image on `main` has this config in `/etc/logrotate.d/hpc`, so this applies there too.
+
 # todo: add log rotation
 set up log rotation:
 Example:
