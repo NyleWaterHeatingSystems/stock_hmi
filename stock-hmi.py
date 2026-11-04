@@ -17,8 +17,8 @@ import sys
 import time
 import traceback
 """
-Runs on the HMI as root, from a kit built by make-usb-kit.py (bin/, system/
-and debs/ next to this script). It assumes the golden image (see
+Runs on the HMI as root, from a kit built by make-usb-kit.py (bin/, system/,
+debs/ and hpc-usb-update.py next to this script). It assumes the golden image (see
 HOWTO_golden_image.md): Bookworm (Debian 12) Lite with EDATEC's kernel and
 drivers, and a login user with passwordless sudo (pi on the golden image).
 Upon completion, every regular login user other than nwhs is removed.
@@ -60,7 +60,7 @@ APP_PASSWORD_HASH = (
 
 LOG_FILE = Path("/var/log/hpc-stock-installer.log")
 # os-release style KEY=value record of what is installed: the golden image
-# writes HPC_GOLDEN, provisioning writes HPC_SETUP*, the app install HPC_APP*.
+# writes HPC_GOLDEN, provisioning writes HPC_SETUP_DATE, the app install HPC_APP*.
 RELEASE_INFO_FILE = Path("/etc/hpc-release")
 
 def frozen() -> bool:
@@ -333,6 +333,75 @@ def configure_network_access() -> None:
     )
 
 
+def configure_gateway_ports() -> None:
+    # Standalone so an already provisioned unit can get it without a rerun.
+    run(["sh", str(bundle_directory() / "hpc-gateway-ports.sh"), "install"])
+
+
+def configure_usb_update() -> None:
+    """Install HMI releases from USB drives; see hpc-usb-update.py."""
+    updater = Path("/usr/local/sbin/hpc-usb-update")
+    source = bundle_directory() / "hpc-usb-update.py"
+    if not source.is_file():
+        raise RuntimeError(f"Missing updater: {source}")
+    shutil.copyfile(source, updater)
+    os.chown(updater, 0, 0)
+    updater.chmod(0o755)
+
+    units = {
+        "hpc-usb-update@.service": f"""[Unit]
+Description=Check USB drive %I for an HMI release
+
+[Service]
+Type=oneshot
+ExecStart={updater} --scan /dev/%I
+""",
+        # Started by the panel creating /run/hpc-update/install.
+        "hpc-usb-update-apply.service": f"""[Unit]
+Description=Install the HMI release copied from a USB drive
+
+[Service]
+Type=oneshot
+ExecStart={updater} --apply
+TimeoutStartSec=300
+""",
+        "hpc-usb-update-apply.path": """[Unit]
+Description=Watch for the panel asking to install an HMI release
+
+[Path]
+PathExists=/run/hpc-update/install
+
+[Install]
+WantedBy=multi-user.target
+""",
+        "hpc-usb-update-boot.service": f"""[Unit]
+Description=Recover from an interrupted HMI update
+After=local-fs.target
+Before=hmi.service hpc-usb-update-apply.path
+
+[Service]
+Type=oneshot
+ExecStart={updater} --boot
+
+[Install]
+WantedBy=multi-user.target
+""",
+    }
+    for name, text in units.items():
+        Path("/etc/systemd/system", name).write_text(text, encoding="utf-8")
+
+    # vfat only: the app's log drive code mounts nothing else.
+    Path("/etc/udev/rules.d/99-hpc-usb-update.rules").write_text(
+        'ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{ID_FS_TYPE}=="vfat", '
+        'TAG+="systemd", ENV{SYSTEMD_WANTS}+="hpc-usb-update@%k.service"\n',
+        encoding="utf-8",
+    )
+
+    run(["systemctl", "daemon-reload"])
+    run(["systemctl", "enable", "hpc-usb-update-apply.path", "hpc-usb-update-boot.service"])
+    run(["udevadm", "control", "--reload-rules"])
+
+
 def configure_sudo_access() -> None:
     # Membership in sudo grants normal administrative access using the nwhs
     # password. The app changes the network through polkit, so nothing is
@@ -531,16 +600,6 @@ def update_release_info(values: dict[str, str]) -> None:
     logging.info("Recorded in %s: %s", RELEASE_INFO_FILE, ", ".join(f"{k}={v}" for k, v in values.items()))
 
 
-def read_setup_version() -> str:
-    """The kit's VERSION file as "setup-vX.Y.Z", or "unknown" for an older kit."""
-    version_file = bundle_directory() / "VERSION"
-    if version_file.is_file():
-        for line in version_file.read_text(encoding="utf-8").splitlines():
-            if re.fullmatch(r"\d+\.\d+\.\d+", line.strip()):
-                return f"setup-v{line.strip()}"
-    return "unknown"
-
-
 def record_app_release(app_dir: Path) -> None:
     """Record the installed app's version and source commit from its release manifest."""
     manifest_file = app_dir / "release-manifest.json"
@@ -556,7 +615,7 @@ def record_app_release(app_dir: Path) -> None:
 
 
 def record_setup_release() -> None:
-    values = {"HPC_SETUP": read_setup_version(), "HPC_SETUP_DATE": utc_timestamp()}
+    values = {"HPC_SETUP_DATE": utc_timestamp()}
     # Golden images from before /etc/hpc-release existed (2026-10-22) have no HPC_GOLDEN.
     existing = RELEASE_INFO_FILE.read_text(encoding="utf-8") if RELEASE_INFO_FILE.is_file() else ""
     if not re.search(r"^HPC_GOLDEN=", existing, re.MULTILINE):
@@ -596,9 +655,11 @@ def provision() -> None:
     configure_hostname()
     configure_network_profiles()
     configure_network_access()
+    configure_gateway_ports()
     configure_sudo_access()
     configure_touchscreen_udev()
     configure_boot(app_dir)
+    configure_usb_update()
     configure_legacy_user_cleanup()
     record_setup_release()
 

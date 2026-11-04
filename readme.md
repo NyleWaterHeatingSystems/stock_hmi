@@ -26,8 +26,9 @@ check, are in [HOWTO_golden_image.md](HOWTO_golden_image.md).
 ```text
 stock_hmi/
 ├── stock-hmi.py          # the provisioner; runs on the HMI as root
+├── hpc-usb-update.py     # installed on the HMI: installs releases from a USB drive
 ├── make-usb-kit.py       # builds the provisioning USB on the maintainer's PC
-├── VERSION               # setup version (semver), tagged setup-vX.Y.Z
+├── hpc-gateway-ports.sh  # exposes the HPC's variables to hpc-gateway; also runs alone
 ├── BOOKWORM/             # setup payload for Debian 12 (Bookworm)
 │   ├── debs/             # offline .deb dependencies
 │   └── network/          # eth2-hpc.nmconnection: golden image only (HOWTO 1.5)
@@ -55,11 +56,12 @@ and `hmi_polkit_rules` components (v2.0.8 and earlier):
 ```text
 USB/
 ├── stock-hmi.py
-├── VERSION
+├── hpc-usb-update.py
+├── hpc-gateway-ports.sh
 ├── bin/                  # HPC_LinuxGUI, assets/, release-manifest.json
 ├── system/               # hmi.service, hmi-networkmanager.rules (from the release)
 ├── debs/
-├── KIT.txt               # setup version, release, stock_hmi commit and build time
+├── KIT.txt               # release, stock_hmi commit and build time
 └── SHA256SUMS            # check on the HMI with: sha256sum -c SHA256SUMS
 ```
 
@@ -78,6 +80,49 @@ reboots. Re-running it with a newer kit is the update path.
 
 The startup service runs `/home/nwhs/hpc-hmi/bin/HPC_LinuxGUI`. If that name or
 path changes, update the service definition in `stock-hmi.py`.
+
+## hpc-gateway access
+
+`hpc-gateway` reaches all three variable tables at the HMI's MCP address,
+`192.168.1.(unit number + 1)`, from a machine on the MCP network:
+
+| Variables | `hmi_port` | Reaches |
+| --- | --- | --- |
+| HMI | 2324 | the HMI's own proxy (no setup needed) |
+| HPC IoT board | 5324 | `192.168.0.2:2324` |
+| HPC control board | 5325 | `192.168.0.2:2325` |
+
+New provisioning sets this up. To patch a unit that's already provisioned, with
+no reboot, run this from a laptop on the HPC link or the MCP network, using the
+HMI's address on that network:
+
+```bash
+scp hpc-gateway-ports.sh nwhs@<HMI>:
+ssh -t nwhs@<HMI> sudo sh hpc-gateway-ports.sh install
+```
+
+`status` shows the state, and `remove` undoes it. The setting lasts across power
+cycles and app updates. It also supports apps up to v2.0.9, which use `br0`.
+Tested in network namespaces only. TODO: test on hardware.
+
+Run one gateway per table. Each needs its own conf file and its own
+`modbus_bind` and `http_bind`, because a conf file holds one table's point rows.
+For unit 1, the control board:
+
+```text
+hmi_addr = 192.168.1.2
+hmi_port = 5325
+modbus_bind = 0.0.0.0:8503
+http_bind = 0.0.0.0:8083
+```
+
+- Each port serves one client: the proxy replies to whoever wrote last. Don't
+  point a second gateway or `hpc_console` at a port that's in use.
+- The gateway must have an address on `192.168.1.0/24`. The ports don't answer
+  from other networks, including the BMS network.
+- These ports give full proxy access, not read-only access: the firmware doesn't
+  enforce authentication, so anything on the MCP network can also write
+  variables or reboot the boards through them. The gateway itself only reads.
 
 ## Maintenance
 

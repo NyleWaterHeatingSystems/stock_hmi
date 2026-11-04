@@ -30,8 +30,7 @@ list of open items is in [Open items](#open-items) at the end.
 
 ## How the pieces fit together
 
-The HMI's software is built in three layers. Each layer changes at its own pace
-and has its own version:
+The HMI's software is built in three layers. Each layer changes at its own pace:
 
 | Layer | What it is | Where it lives | Changes |
 | --- | --- | --- | --- |
@@ -581,8 +580,8 @@ machine ID.
 > that no private key ends up in the image file.
 
 > **Note:** `/etc/hpc-release` records what's installed on a unit. The golden
-> image writes `HPC_GOLDEN`; provisioning adds the setup and app versions (see
-> 2.2). The 2026-10-22 image was built before this file existed, so units
+> image writes `HPC_GOLDEN`; provisioning adds the setup date and app version
+> (see 2.2). The 2026-10-22 image was built before this file existed, so units
 > flashed from it show `HPC_GOLDEN=unknown`.
 
 TODO: turn this cleanup into a script in the repo, so it can't be done
@@ -799,8 +798,9 @@ The kit contains:
 ```text
 USB/
 ├── stock-hmi.py
-├── VERSION       # setup version, e.g. 1.0.0
+├── hpc-gateway-ports.sh  # exposes the HPC to hpc-gateway; also runs alone
 ├── bin/          # HPC_LinuxGUI, assets/, release-manifest.json
+├── hpc-usb-update.py  # installed on the HMI, for USB updates (3.3)
 ├── system/       # hmi.service, hmi-networkmanager.rules (from the release)
 ├── debs/         # offline packages: iptables, libip6tc2, libpaho-mqtt1.3
 ├── KIT.txt       # what went into the kit (shown above)
@@ -913,21 +913,26 @@ The golden image has no desktop, so everything is done over SSH.
 >    names can swap. It deletes the old
 >    `eth2-hpc` and `br0` bridge profiles. The app only changes these
 >    profiles' addresses;
-> 6. installs the release's polkit rule as
+> 6. runs `hpc-gateway-ports.sh install`, which exposes the HPC's variable
+>    proxies to `hpc-gateway` on the HMI's MCP address, on UDP 5324 (IoT) and
+>    5325 (control); see the [readme](readme.md#hpc-gateway-access);
+> 7. installs the release's polkit rule as
 >    `/etc/polkit-1/rules.d/50-hpc-hmi-networkmanager.rules`, which lets `nwhs`
 >    (the app) change the NetworkManager profiles without sudo, and lets `nwhs`
 >    use sudo with its password (nothing passwordless);
-> 7. adds a udev rule that creates `/dev/input/touchscreen`;
-> 8. installs the release's `hmi.service` (runs `HPC_LinuxGUI 192.168.0.2`) and
+> 8. adds a udev rule that creates `/dev/input/touchscreen`;
+> 9. installs the release's `hmi.service` (runs `HPC_LinuxGUI 192.168.0.2`) and
 >    `hmi-console.service`, sets up autologin on the panel, starts in text mode
->    (`multi-user.target`) and keeps SSH on;
-> 9. locks every login user except `nwhs` (on the golden image, that's `pi`) and
+>    (`multi-user.target`) and keeps SSH on.
+>    It also installs `hpc-usb-update`, so later app releases can be installed
+>    from a USB drive ([3.3](#33-updating-from-a-usb-drive));
+> 10. locks every login user except `nwhs` (on the golden image, that's `pi`) and
 >    **deletes them on the next boot**, along with their sudo rules;
-> 10. records the installed versions in `/etc/hpc-release` (`HPC_APP`,
->     `HPC_APP_COMMIT` and `HPC_APP_DATE` after copying the app; `HPC_SETUP` and
->     `HPC_SETUP_DATE` at the end, plus `HPC_GOLDEN=unknown` if the golden image
+> 11. records the installed versions in `/etc/hpc-release` (`HPC_APP`,
+>     `HPC_APP_COMMIT` and `HPC_APP_DATE` after copying the app; `HPC_SETUP_DATE`
+>     at the end, plus `HPC_GOLDEN=unknown` if the golden image
 >     didn't set it). Each step replaces only its own lines;
-> 11. logs everything to `/var/log/hpc-stock-installer.log`, then reboots.
+> 12. logs everything to `/var/log/hpc-stock-installer.log`, then reboots.
 
 ### 2.3 Check the provisioned HMI
 
@@ -946,9 +951,10 @@ checks. The `pi` user no longer exists.
 | Network profiles | `nmcli -f NAME,DEVICE con show --active` | `eth0-hpc eth0`, `lo lo`, and `eth1-mcp eth1` / `eth2-bms eth2` for ports with a cable in. No `br0` or `eth2-hpc`. TODO: not yet run on hardware |
 | Addresses | `nmcli -g NAME,ipv4.addresses con show \| grep -E '^eth'` | `eth0-hpc:192.168.0.3/24`, `eth1-mcp:192.168.1.<unit + 1>/24`, `eth2-bms:192.168.2.253/24` |
 | Network permission | `sudo ls /etc/polkit-1/rules.d/` | includes `50-hpc-hmi-networkmanager.rules`. TODO: not yet run on hardware |
+| Gateway ports | `systemctl is-active hpc-gateway-ports.service`, then `sudo sh hpc-gateway-ports.sh status` from the kit | `active`, `ip_forward: 1`, and DNAT rows for 5324 and 5325. TODO: not yet run on hardware |
 | No file capabilities | `/usr/sbin/getcap ~/hpc-hmi/bin/HPC_LinuxGUI` | nothing printed (the app's capabilities come from `hmi.service`) |
 | App files | `ls -l ~/hpc-hmi/bin/` | `assets/`, `HPC_LinuxGUI`, `release-manifest.json`, and `settings.txt`, which the app created when it first started |
-| Installed versions | `cat /etc/hpc-release` | TODO: not yet run on hardware. Expected with the 2026-10-22 image and app v2.0.8: `HPC_APP=v2.0.8`, `HPC_APP_COMMIT=e8e007c9…`, `HPC_SETUP=setup-v1.0.0`, `HPC_GOLDEN=unknown`, plus two dates |
+| Installed versions | `cat /etc/hpc-release` | TODO: not yet run on hardware. Expected with the 2026-10-22 image and app v2.0.8: `HPC_APP=v2.0.8`, `HPC_APP_COMMIT=e8e007c9…`, `HPC_GOLDEN=unknown`, plus two dates |
 | Installer log | `sudo grep -iE 'error\|fail' /var/log/hpc-stock-installer.log` | Nothing from the successful run. The log keeps every run, so errors from earlier failed runs still show |
 
 > **Note:** this network layout needs an app built with the per-port profiles
@@ -1020,6 +1026,51 @@ before the run, and compare it afterwards. If it changed, check the file's time 
 > image first avoids this. An experimental `--patch` mode for later OS changes,
 > such as log rotation, is in `dev_test/stock-hmi2.py` (see `dev_test/TODO.md`).
 
+### 3.3 Updating from a USB drive
+
+For a release that doesn't need a new setup, a technician can install it from a
+USB drive, without a laptop. Use a kit (3.2) for anything else, and for an HMI
+that hasn't had a kit since `hpc-usb-update` was added.
+
+**Maintainer: prepare the drive.** It must be FAT32, with the release at its root:
+
+```text
+USB/
+└── releases/
+    ├── CURRENT                # names the release to install, e.g. v2.0.11
+    └── versions/
+        └── v2.0.11/           # copied from hpc-releases, with assets/ and manifest.json
+```
+
+The updater installs what `CURRENT` names, and only if it's newer than the
+installed release. To go back to an older release, use a kit. The same drive can
+also hold logs: its `HPC_LOGS` folder and `releases` folder don't interact.
+
+**Technician: install it.**
+
+1. Plug the drive into the HMI. Within about 15 seconds, the Home screen shows
+   **Update available**. The drive can be removed once it does.
+2. Take the unit out of cycle. **Install** stays disabled while the unit is
+   running, unless the HMI has lost contact with the HPC.
+3. Press **Install**. The screen goes blank or shows a message for up to a
+   minute while the HMI restarts. Don't power it off.
+4. The Home screen reports the result. If the new release doesn't stay running,
+   the HMI goes back to the previous one by itself and says so. The same happens
+   if power is lost during the install; plug the drive in again to retry.
+
+If the screen says to use a full USB kit, the release needs a newer setup than
+this HMI has, or is too old for this method. Use 3.2.
+
+> **Note:** a bad or incomplete copy is refused: every file is checked against
+> the release's `manifest.json` after copying it to the HMI. These checksums
+> catch damage, not tampering, so anyone with a drive can offer a release.
+
+> **Note:** only the HMI app, `hmi.service` and the polkit rule are replaced.
+> `control` and `iot` are flashed by hand, and all three must be the same
+> version, so flash the chips as part of the same update. The updater doesn't
+> check this. The log of each attempt is in
+> `journalctl -u 'hpc-usb-update*'`.
+
 ---
 
 ## Open items
@@ -1032,8 +1083,10 @@ before the run, and compare it afterwards. If it changed, check the file's time 
 | No port has a gateway or DNS, so a provisioned HMI has no route to NTP servers; `systemd-timesyncd` (golden image default) can't set the clock | [2.2](#22-run-the-provisioner) |
 | Record which labelled socket on the case is eth2 (`usb-0:3`) | [1.5](#fixed-address-on-the-hpc-port-eth2) |
 | Test the update path (3.2), including that `settings.txt` survives | [3.2](#32-technician-apply-the-kit-to-a-provisioned-hmi) |
+| Test `hpc-gateway-ports.sh` on hardware: all three gateway sources, across HMI and HPC power cycles, and check that polling 5325 doesn't slow the HMI's status link, which shares the IoT-control link | [readme](readme.md#hpc-gateway-access) |
+| Test USB updates (3.3) on hardware: detection, the panel prompt, rollback, and a drive that also holds logs | [3.3](#33-updating-from-a-usb-drive) |
+| Later: update `control` and `iot` from USB too. The chips have app rollback on, but nothing calls `esp_ota_mark_app_valid_cancel_rollback()`, so an image installed over the air should revert on its next reset until new firmware confirms itself | [3.3](#33-updating-from-a-usb-drive) |
 | Script the pre-capture cleanup | [1.5](#clean-up-before-capturing) |
-| Tag `setup-v1.0.0` once the `golden-image-usb-kit` branch is merged | `VERSION` |
 | Run the provisioner with `/etc/hpc-release` support on hardware and record the 2.3 output | [2.3](#23-check-the-provisioned-hmi) |
-| Later: refuse an app whose manifest `requires_setup` is newer than the unit's `HPC_SETUP` | `stock-hmi.py` |
+| Move the setup into `HPC_Firmware`, versioned with the app (decided 2026-11-04; not started). stock_hmi's own setup version is gone. Until the move, `hpc-usb-update` refuses any release that sets `requires_setup`, and a unit's setup can't be identified; define a replacement as part of the move | `HPC_Firmware` |
 | Try the Windows "Internet Connection Sharing" fallback | [0](#fallback-the-laptop-as-a-dhcp-server) |
