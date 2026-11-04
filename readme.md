@@ -26,6 +26,7 @@ check, are in [HOWTO_golden_image.md](HOWTO_golden_image.md).
 ```text
 stock_hmi/
 ├── stock-hmi.py          # the provisioner; runs on the HMI as root
+├── hpc-usb-update.py     # installed on the HMI: installs releases from a USB drive
 ├── make-usb-kit.py       # builds the provisioning USB on the maintainer's PC
 ├── VERSION               # setup version (semver), tagged setup-vX.Y.Z
 ├── BOOKWORM/             # setup payload for Debian 12 (Bookworm)
@@ -55,6 +56,7 @@ and `hmi_polkit_rules` components (v2.0.8 and earlier):
 ```text
 USB/
 ├── stock-hmi.py
+├── hpc-usb-update.py
 ├── VERSION
 ├── bin/                  # HPC_LinuxGUI, assets/, release-manifest.json
 ├── system/               # hmi.service, hmi-networkmanager.rules (from the release)
