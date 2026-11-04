@@ -801,6 +801,7 @@ USB/
 ├── stock-hmi.py
 ├── VERSION       # setup version, e.g. 1.0.0
 ├── bin/          # HPC_LinuxGUI, assets/, release-manifest.json
+├── hpc-usb-update.py  # installed on the HMI, for USB updates (3.3)
 ├── system/       # hmi.service, hmi-networkmanager.rules (from the release)
 ├── debs/         # offline packages: iptables, libip6tc2, libpaho-mqtt1.3
 ├── KIT.txt       # what went into the kit (shown above)
@@ -923,7 +924,9 @@ The golden image has no desktop, so everything is done over SSH.
 > 8. adds a udev rule that creates `/dev/input/touchscreen`;
 > 9. installs the release's `hmi.service` (runs `HPC_LinuxGUI 192.168.0.2`) and
 >    `hmi-console.service`, sets up autologin on the panel, starts in text mode
->    (`multi-user.target`) and keeps SSH on;
+>    (`multi-user.target`) and keeps SSH on.
+>    It also installs `hpc-usb-update`, so later app releases can be installed
+>    from a USB drive ([3.3](#33-updating-from-a-usb-drive));
 > 10. locks every login user except `nwhs` (on the golden image, that's `pi`) and
 >    **deletes them on the next boot**, along with their sudo rules;
 > 11. records the installed versions in `/etc/hpc-release` (`HPC_APP`,
@@ -1024,6 +1027,51 @@ before the run, and compare it afterwards. If it changed, check the file's time 
 > image first avoids this. An experimental `--patch` mode for later OS changes,
 > such as log rotation, is in `dev_test/stock-hmi2.py` (see `dev_test/TODO.md`).
 
+### 3.3 Updating from a USB drive
+
+For a release that doesn't need a new setup, a technician can install it from a
+USB drive, without a laptop. Use a kit (3.2) for anything else, and for an HMI
+that hasn't had a kit since `hpc-usb-update` was added.
+
+**Maintainer: prepare the drive.** It must be FAT32, with the release at its root:
+
+```text
+USB/
+└── releases/
+    ├── CURRENT                # names the release to install, e.g. v2.0.11
+    └── versions/
+        └── v2.0.11/           # copied from hpc-releases, with assets/ and manifest.json
+```
+
+The updater installs what `CURRENT` names, and only if it's newer than the
+installed release. To go back to an older release, use a kit. The same drive can
+also hold logs: its `HPC_LOGS` folder and `releases` folder don't interact.
+
+**Technician: install it.**
+
+1. Plug the drive into the HMI. Within about 15 seconds, the Home screen shows
+   **Update available**. The drive can be removed once it does.
+2. Take the unit out of cycle. **Install** stays disabled while the unit is
+   running, unless the HMI has lost contact with the HPC.
+3. Press **Install**. The screen goes blank or shows a message for up to a
+   minute while the HMI restarts. Don't power it off.
+4. The Home screen reports the result. If the new release doesn't stay running,
+   the HMI goes back to the previous one by itself and says so. The same happens
+   if power is lost during the install; plug the drive in again to retry.
+
+If the screen says to use a full USB kit, the release needs a newer setup than
+this HMI has, or is too old for this method. Use 3.2.
+
+> **Note:** a bad or incomplete copy is refused: every file is checked against
+> the release's `manifest.json` after copying it to the HMI. These checksums
+> catch damage, not tampering, so anyone with a drive can offer a release.
+
+> **Note:** only the HMI app, `hmi.service` and the polkit rule are replaced.
+> `control` and `iot` are flashed by hand, and all three must be the same
+> version, so flash the chips as part of the same update. The updater doesn't
+> check this. The log of each attempt is in
+> `journalctl -u 'hpc-usb-update*'`.
+
 ---
 
 ## Open items
@@ -1037,6 +1085,8 @@ before the run, and compare it afterwards. If it changed, check the file's time 
 | Record which labelled socket on the case is eth2 (`usb-0:3`) | [1.5](#fixed-address-on-the-hpc-port-eth2) |
 | Test the update path (3.2), including that `settings.txt` survives | [3.2](#32-technician-apply-the-kit-to-a-provisioned-hmi) |
 | Test `hpc-gateway-ports.sh` on hardware: all three gateway sources, across HMI and HPC power cycles, and check that polling 5325 doesn't slow the HMI's status link, which shares the IoT-control link | [readme](readme.md#hpc-gateway-access) |
+| Test USB updates (3.3) on hardware: detection, the panel prompt, rollback, and a drive that also holds logs | [3.3](#33-updating-from-a-usb-drive) |
+| Later: update `control` and `iot` from USB too. The chips have app rollback on, but nothing calls `esp_ota_mark_app_valid_cancel_rollback()`, so an image installed over the air should revert on its next reset until new firmware confirms itself | [3.3](#33-updating-from-a-usb-drive) |
 | Script the pre-capture cleanup | [1.5](#clean-up-before-capturing) |
 | Tag `setup-v1.0.0` once the `golden-image-usb-kit` branch is merged | `VERSION` |
 | Run the provisioner with `/etc/hpc-release` support on hardware and record the 2.3 output | [2.3](#23-check-the-provisioned-hmi) |

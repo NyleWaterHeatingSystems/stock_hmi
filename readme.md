@@ -26,6 +26,7 @@ check, are in [HOWTO_golden_image.md](HOWTO_golden_image.md).
 ```text
 stock_hmi/
 ├── stock-hmi.py          # the provisioner; runs on the HMI as root
+├── hpc-usb-update.py     # installed on the HMI: installs releases from a USB drive
 ├── make-usb-kit.py       # builds the provisioning USB on the maintainer's PC
 ├── hpc-gateway-ports.sh  # exposes the HPC's variables to hpc-gateway; also runs alone
 ├── VERSION               # setup version (semver), tagged setup-vX.Y.Z
@@ -56,6 +57,7 @@ and `hmi_polkit_rules` components (v2.0.8 and earlier):
 ```text
 USB/
 ├── stock-hmi.py
+├── hpc-usb-update.py
 ├── hpc-gateway-ports.sh
 ├── VERSION
 ├── bin/                  # HPC_LinuxGUI, assets/, release-manifest.json

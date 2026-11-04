@@ -2,7 +2,7 @@
 """Assemble an offline provisioning kit (USB contents) for the HPC HMI.
 
 Runs on the maintainer's computer. Combines this repo's setup payload
-(stock-hmi.py, VERSION, debs/) with one HMI release from a
+(stock-hmi.py, hpc-usb-update.py, VERSION, debs/) with one HMI release from a
 local hpc-releases checkout, verified against the release manifest.
 """
 
@@ -28,7 +28,8 @@ GATEWAY_PORTS_SCRIPT = "hpc-gateway-ports.sh"
 # only these, so unrelated files on the stick are left alone. network/ is from
 # older kits and is no longer written.
 KIT_ENTRIES = (
-    "stock-hmi.py", GATEWAY_PORTS_SCRIPT, "VERSION", "bin", "system", "debs", "network", "KIT.txt", "SHA256SUMS",
+    "stock-hmi.py", "hpc-usb-update.py", GATEWAY_PORTS_SCRIPT, "VERSION", "bin", "system", "debs", "network",
+    "KIT.txt", "SHA256SUMS",
 )
 # Release manifest components installed outside the app directory, and their
 # names in the kit's system/ directory (stock-hmi.py installs them from there).
@@ -162,7 +163,8 @@ def build_kit(output: Path, releases: Path, release_name: str | None, replace: b
     manifest, release_files = load_release(release_directory)
     release_binary = release_files["hmi"]
     for required in (
-        REPO_DIRECTORY / "stock-hmi.py", REPO_DIRECTORY / GATEWAY_PORTS_SCRIPT, PAYLOAD_DIRECTORY / "debs",
+        REPO_DIRECTORY / "stock-hmi.py", REPO_DIRECTORY / "hpc-usb-update.py", REPO_DIRECTORY / GATEWAY_PORTS_SCRIPT,
+        PAYLOAD_DIRECTORY / "debs",
     ):
         if not required.exists():
             raise RuntimeError(f"Missing setup payload: {required}")
@@ -170,6 +172,7 @@ def build_kit(output: Path, releases: Path, release_name: str | None, replace: b
     prepare_output(output, replace)
 
     shutil.copyfile(REPO_DIRECTORY / "stock-hmi.py", output / "stock-hmi.py")
+    shutil.copyfile(REPO_DIRECTORY / "hpc-usb-update.py", output / "hpc-usb-update.py")
     shutil.copyfile(REPO_DIRECTORY / GATEWAY_PORTS_SCRIPT, output / GATEWAY_PORTS_SCRIPT)
     shutil.copyfile(REPO_DIRECTORY / "VERSION", output / "VERSION")
     copy_tree(PAYLOAD_DIRECTORY / "debs", output / "debs")
