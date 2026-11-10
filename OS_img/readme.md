@@ -58,7 +58,7 @@ sudo dd if=GOLDEN_shrunk.img of=/dev/sda bs=16M conv=fsync status=progress
 ```
 
 # Troubleshooting:
-**What a filed checksum looks like**
+**What a failed checksum looks like**
 ```hash_fail
 $ echo '77c6411867850938392d0132b33b83b19f9d034eeb1abd714956b5c3c029e4be  GOLDEN_shrunk.img' | sha256sum -c -
 GOLDEN_shrunk.img: FAILED
