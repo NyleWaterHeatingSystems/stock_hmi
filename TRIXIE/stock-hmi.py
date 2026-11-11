@@ -528,6 +528,30 @@ WantedBy=multi-user.target
     run(["systemctl", "daemon-reload"])
     run(["systemctl", "enable", "hpc-remove-legacy-users.service"])
 
+def configure_logrotate() -> None:
+    logrotate = command_path("logrotate")
+    config = Path("/etc/logrotate.d/hpc")
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(
+        """/var/log/hpc/data/*/*/*.csv {
+    daily
+    maxsize 100M
+    rotate 7300
+    compress
+    nodelaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+""",
+        encoding="utf-8",
+    )
+    os.chown(config, 0, 0)
+    config.chmod(0o644)
+
+    # Validate without rotating or changing the rotation state.
+    #run([logrotate, "--debug", "/etc/logrotate.conf"])
+    run(["systemctl", "enable", "--now", "logrotate.timer"])
 
 def configure_boot(app_dir: Path) -> None:
     existing_groups = []
@@ -644,6 +668,7 @@ def provision() -> None:
     )
 
     ensure_user()
+    configure_logrotate()
     install_application(source_dir, app_dir)
     configure_hostname()
     configure_sudo_access()

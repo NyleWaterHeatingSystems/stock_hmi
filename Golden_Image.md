@@ -56,7 +56,7 @@ Linux raspberrypi 6.18.50+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (202
 
 ## Created Files
 
-### `/etc/logroate.d/hpc`
+### `/etc/logrotate.d/hpc`
 
 ```conf
 /var/log/hpc/data/*/*/*.csv {
