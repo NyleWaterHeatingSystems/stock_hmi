@@ -1,0 +1,13 @@
+// polkit rule for the HPC HMI. Ships with each release next to hmi.service (manifest component
+// "hmi_polkit_rules"); the hmi_provisioning installer installs it as /etc/polkit-1/rules.d/40-hpc-hmi-networkmanager.rules.
+//
+// Lets the HMI's service account (nwhs) change and reactivate NetworkManager connection profiles -- what the HMI
+// does when it sets the eth0/eth1/eth2 profile addresses (eth1 follows the unit number) -- without sudo. Nothing else
+// is granted.
+polkit.addRule(function (action, subject) {
+  if (subject.user == "nwhs" &&
+      (action.id == "org.freedesktop.NetworkManager.settings.modify.system" ||
+       action.id == "org.freedesktop.NetworkManager.network-control")) {
+    return polkit.Result.YES;
+  }
+});

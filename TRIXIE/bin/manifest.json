@@ -1,23 +1,104 @@
 {
-  "release_version": "v2.0.8",
-  "release_datetime": "2026-10-12T20:11:48Z",
+  "release_version": "v2.0.16",
+  "release_datetime": "2026-11-11T21:54:56Z",
   "source_repo": "git@github.com:NyleWaterHeatingSystems/HPC_Firmware.git",
-  "source_commit": "e8e007c9dfed81eb3fdb3f10c64bb33ecfd91ac8",
-  "source_tag": "v2.0.8",
-  "source_provenance": "Inferred: commit that added the rebuilt binaries, 1 min after the build; source identical to d00dd0a. Closest available commit; may not be identical to the build. An earlier, different v2.0.8 build was committed in 5f42e86.",
+  "source_commit": "f961855a4b3144a18ad82f5381a092a7747529da",
+  "source_branch": "main",
+  "source_tag": "v2.0.16",
   "requires_setup": null,
+  "breaking_changes": [
+    {
+      "since": "v2.0.11-RC1",
+      "kind": "full_kit",
+      "area": "setup",
+      "text": "Network changed from br0 to one fixed address per port, which only stock-hmi.py sets up."
+    },
+    {
+      "since": "v2.0.11-RC2",
+      "kind": "full_kit",
+      "area": "setup",
+      "text": "Apps before v2.0.11-RC2 can't install from a USB drive, so the panel couldn't be updated again from one."
+    },
+    {
+      "since": "v2.0.11-RC2",
+      "kind": "warning",
+      "area": "firmware",
+      "text": "Status packet and alarm bits changed: control and iot must run firmware from the same side of v2.0.11-RC2."
+    },
+    {
+      "since": "v2.0.11-RC2",
+      "kind": "warning",
+      "area": "gateway",
+      "text": "HMI variable table changed: regenerate hpc-gateway's conf with --remap, or it reads the wrong values."
+    },
+    {
+      "since": "v2.0.12-RC1",
+      "kind": "warning",
+      "area": "log_drive",
+      "text": "Log drive format changed: log drives must be re-provisioned on the Diagnostic page, which erases them."
+    },
+    {
+      "since": "v2.0.12-RC1",
+      "kind": "warning",
+      "area": "gateway",
+      "text": "HMI variable table changed: regenerate hpc-gateway's conf with --remap, or it reads the wrong values."
+    },
+    {
+      "since": "v2.0.13-RC1",
+      "kind": "warning",
+      "area": "firmware",
+      "text": "HMI-HPC packets changed: control and iot must run firmware from the same side of v2.0.13, or the HMI can't reach the HPC."
+    },
+    {
+      "since": "v2.0.13-RC1",
+      "kind": "warning",
+      "area": "gateway",
+      "text": "HMI variable table changed: regenerate hpc-gateway's conf with --remap, or it reads the wrong values."
+    },
+    {
+      "since": "v2.0.16",
+      "kind": "warning",
+      "area": "bms",
+      "text": "BMS Modbus registers and BACnet AI numbers changed: load FieldServer profile 8.00aA and remap the BMS points."
+    },
+    {
+      "since": "v2.0.16",
+      "kind": "warning",
+      "area": "gateway",
+      "text": "HMI variable table changed: regenerate hpc-gateway's conf with --remap, or it reads the wrong values."
+    },
+    {
+      "since": "v2.0.16",
+      "kind": "warning",
+      "area": "firmware",
+      "text": "Fault bits renumbered (Modbus/Defrost/Sensor Alarm removed): control and iot must run firmware from the same side of v2.0.16."
+    }
+  ],
+  "debs": null,
   "components": {
     "hmi": {
-      "file": "hmi_v2.0.8.bin",
-      "sha256": "ced3d74f78cb697c10e17720135436b1e20fcfb4981edb5a583a56e13555285b"
+      "file": "hmi_v2.0.16.bin",
+      "sha256": "12f2eb01f598cd9596c8ea9496fe6ab219c795793c68039aa856d9053278176f"
+    },
+    "hmi_service": {
+      "file": "hmi.service",
+      "sha256": "5c912b48d81435355206d61afd3f3d857f1bcd80c7f63485c143f148ed03e3bd"
+    },
+    "hmi_polkit_rules": {
+      "file": "hmi-networkmanager.rules",
+      "sha256": "e813ff79c6348404fee5a888c682b0f02252b9f9980b6892b451b89e05c21391"
     },
     "iot": {
-      "file": "iot_v2.0.8.bin",
-      "sha256": "482efdd91fb36a5ee4965908d63f000a405d738f63952bbf0f871e410488216f"
+      "file": "iot_v2.0.16.bin",
+      "sha256": "9dac49efdd5b49f2ecaf4a6a366ccf7e39c875dcf07d8e05e3f60679959ecf8b"
     },
     "control": {
-      "file": "control_v2.0.8.bin",
-      "sha256": "ec8691cdc7785d5ac8eea8bad59ff55f901373aa1c949cfbf2a389efe7edff87"
+      "file": "control_v2.0.16.bin",
+      "sha256": "917247be4cba70194ad1a95bd26f17127fb0202881c0216ede3c25b3aedf3556"
+    },
+    "assets": {
+      "dir": "assets",
+      "sha256": "1c460f7395474a57ca7f838e12511d15e0fc18aa9ea1df81286015bda3d0f049"
     }
   }
 }

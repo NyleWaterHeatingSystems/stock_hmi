@@ -1,8 +1,0 @@
-  <object className="UIVIEW" frame="0,0, 760, 70" backgroundColor="WHITE">
-  <object  runtimeID="51000" className="UILABELVIEW" frame="0,2, 186, 66" backgroundColor="GRAY" text=" Treatment Date:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
-  <object  runtimeID="51001" className="UILABELVIEW" frame="190,2, 186, 66" backgroundColor="GRAY" text=" Target:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
-  <object  runtimeID="51002" className="UILABELVIEW" frame="380,2, 186, 66" backgroundColor="GRAY" text=" Actual:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
-  <object  runtimeID="51003" className="UILABELVIEW" frame="570,2, 186, 66" backgroundColor="GRAY" text=" Cumulative:" textColor="BLACK" textAlignmentFlags="12" font="Tiresias_PCfont28.sif"/>
-</object>
-
-

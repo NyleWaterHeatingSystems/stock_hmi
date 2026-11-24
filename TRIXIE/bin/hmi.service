@@ -1,0 +1,46 @@
+# systemd unit for the HPC HMI. This file is the single definition of the service: create_release.sh ships it with
+# each release (manifest component "hmi_service"), and the hmi_provisioning installer installs it as
+# /etc/systemd/system/hmi.service. Change it here, in the same commit as any HMI change that needs it.
+#
+# Paths and the account are fixed by the installer: the nwhs user, with the HMI in /home/nwhs/hpc-hmi/bin.
+[Unit]
+Description=HPC framebuffer HMI
+Wants=NetworkManager.service hmi-console.service
+After=NetworkManager.service hmi-console.service systemd-user-sessions.service
+
+[Service]
+Type=simple
+User=nwhs
+Group=nwhs
+# disk: raw access to USB drives for log-drive provisioning (wipe, partition table, mkfs.vfat)
+SupplementaryGroups=video render input dialout netdev gpio i2c spi tty disk
+WorkingDirectory=/home/nwhs/hpc-hmi/bin
+Environment=HOME=/home/nwhs
+Environment="QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/touchscreen"
+Environment="TSLIB_TSDEVICE=/dev/input/touchscreen"
+Environment="SDL_MOUSEDEV=/dev/input/touchscreen"
+# Application logs go in /var/log/hpc; systemd creates it, owned by the service user, on each start
+LogsDirectory=hpc
+# /run/hpc, owned by the service user: USB log drives are mounted under /run/hpc/media
+RuntimeDirectory=hpc
+# Turn off cursor, and disable blinks ('+' runs these as root, regardless of the restrictions below)
+ExecStartPre=+/bin/sh -c '/usr/bin/setterm --term linux --clear all --cursor off < /dev/tty1 > /dev/tty1'
+ExecStartPre=+/bin/sh -c 'echo 0 > /sys/class/graphics/fbcon/cursor_blink'
+ExecStart=/home/nwhs/hpc-hmi/bin/HPC_LinuxGUI 192.168.0.2
+Restart=always
+RestartSec=2
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+
+# CAP_NET_BIND_SERVICE: lets the Modbus TCP server bind port 502 (ports below 1024 are privileged)
+# CAP_SYS_ADMIN: mount(2)/umount2(2) and the partition-table re-read for USB log drives
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_SYS_ADMIN
+# Not enabled yet. Nothing the HMI runs needs setuid any more (USB drives use the capabilities and disk group
+# above), so these should now be safe, but they haven't been tested on a panel. (Network changes go through
+# NetworkManager, authorized by hmi-networkmanager.rules, and are unaffected.)
+# CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_SYS_ADMIN
+# NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
